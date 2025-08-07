@@ -1,0 +1,32 @@
+{
+  "name": "invitation-platform-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Invitation Platform Web Applications Monorepo",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "start": "turbo run start",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check",
+    "clean": "turbo run clean",
+    "dev:landing": "turbo run dev --filter=landing-page",
+    "dev:user": "turbo run dev --filter=user-dashboard",
+    "dev:admin": "turbo run dev --filter=admin-dashboard",
+    "build:landing": "turbo run build --filter=landing-page",
+    "build:user": "turbo run build --filter=user-dashboard",
+    "build:admin": "turbo run build --filter=admin-dashboard"
+  },
+  "devDependencies": {
+    "turbo": "^1.10.7",
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  }
+}
