@@ -40,6 +40,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { UserDialog } from "@/components/UserDialog";
 
 export default function UsersPage() {
   const [users, setUsers] = useState<BackendUser[]>([]);
@@ -56,6 +57,9 @@ export default function UsersPage() {
     total: 0,
     totalPages: 0,
   });
+  const [userDialogOpen, setUserDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<BackendUser | null>(null);
+  const [dialogMode, setDialogMode] = useState<"create" | "edit">("create");
 
   const fetchUsers = async () => {
     try {
@@ -101,6 +105,56 @@ export default function UsersPage() {
     }
   };
 
+  const handleCreateUser = async (userData: {
+    email: string;
+    full_name: string;
+    phone?: string;
+  }) => {
+    try {
+      await apiClient.createUser(userData);
+      fetchUsers(); // Refresh the list
+      setUserDialogOpen(false);
+    } catch (err: any) {
+      setError(err.message || 'Failed to create user');
+      throw err; // Re-throw to let the dialog handle it
+    }
+  };
+
+  const handleEditUser = async (userData: {
+    email: string;
+    full_name: string;
+    phone?: string;
+  }) => {
+    if (!editingUser) return;
+    
+    try {
+      await apiClient.updateUser(editingUser.id, userData);
+      fetchUsers(); // Refresh the list
+      setUserDialogOpen(false);
+      setEditingUser(null);
+    } catch (err: any) {
+      setError(err.message || 'Failed to update user');
+      throw err;
+    }
+  };
+
+  const openCreateDialog = () => {
+    setDialogMode("create");
+    setEditingUser(null);
+    setUserDialogOpen(true);
+  };
+
+  const openEditDialog = (user: BackendUser) => {
+    setDialogMode("edit");
+    setEditingUser(user);
+    setUserDialogOpen(true);
+  };
+
+  const closeDialog = () => {
+    setUserDialogOpen(false);
+    setEditingUser(null);
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -131,7 +185,7 @@ export default function UsersPage() {
             <Download className="mr-2 h-4 w-4" />
             Export
           </Button>
-          <Button size="sm">
+          <Button size="sm" onClick={openCreateDialog}>
             <Plus className="mr-2 h-4 w-4" />
             Add User
           </Button>
@@ -297,7 +351,7 @@ export default function UsersPage() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => openEditDialog(user)}>
                                   <Eye className="mr-2 h-4 w-4" />
                                   View Details
                                 </DropdownMenuItem>
@@ -351,6 +405,15 @@ export default function UsersPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* User Dialog */}
+      <UserDialog
+        isOpen={userDialogOpen}
+        onClose={closeDialog}
+        onSubmit={dialogMode === "create" ? handleCreateUser : handleEditUser}
+        user={editingUser}
+        mode={dialogMode}
+      />
     </div>
   );
 }

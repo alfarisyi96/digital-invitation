@@ -109,14 +109,20 @@ class ApiClient {
     return this.get('/users', params);
   }
 
+  public async createUser(data: { email: string; full_name: string; phone?: string }) {
+    return this.post('/users', data);
+  }
+
+  public async updateUser(id: string, data: { email?: string; full_name?: string; phone?: string }) {
+    return this.put(`/users/${id}`, data);
+  }
+
   public async getUserById(id: string) {
-    const response = await this.get(`/admin/users/${id}`);
-    return response;
+    return this.get(`/users/${id}`);
   }
 
   public async deleteUser(id: string) {
-    const response = await this.delete(`/admin/users/${id}`);
-    return response;
+    return this.delete(`/users/${id}`);
   }
 
   public async getUserStats() {

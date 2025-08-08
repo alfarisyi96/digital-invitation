@@ -28,6 +28,7 @@ export interface BackendUser {
   id: string;
   email: string;
   name: string;
+  phone?: string;
   reseller_id?: string;
   created_at: string;
   reseller?: Reseller;
