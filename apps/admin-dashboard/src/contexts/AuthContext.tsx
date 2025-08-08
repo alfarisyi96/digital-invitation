@@ -100,8 +100,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(userData);
     }
     
-    // Always check auth status with server
-    checkAuth();
+    // Only check auth status with server if not on login page to prevent redirect loops
+    if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+      checkAuth();
+    } else {
+      // If on login page and no localStorage data, set loading to false
+      if (!userData) {
+        setIsLoading(false);
+      }
+    }
   }, []);
 
   const value = {

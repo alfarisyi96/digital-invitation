@@ -14,13 +14,22 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login, user } = useAuth();
+  const { login, user, isLoading: authLoading } = useAuth();
   const router = useRouter();
 
-  // Redirect if already logged in
-  if (user) {
+  // Redirect if already logged in, but only after auth loading is complete
+  if (!authLoading && user) {
     router.push('/dashboard');
     return null;
+  }
+
+  // Show loading state while checking auth
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

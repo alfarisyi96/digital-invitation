@@ -20,9 +20,11 @@ class ApiClient {
       (response) => response,
       (error) => {
         if (error.response?.status === 401) {
-          // Clear any client-side user data and redirect to login
+          // Clear any client-side user data
           this.clearUserData();
-          if (typeof window !== 'undefined') {
+          
+          // Only redirect if not already on login page to prevent redirect loops
+          if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
             window.location.href = '/login';
           }
         }
