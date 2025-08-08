@@ -1,0 +1,41 @@
+{
+  "version": 2,
+  "projects": [
+    {
+      "name": "invitation-landing-page",
+      "source": "apps/landing-page",
+      "framework": "nextjs",
+      "buildCommand": "cd ../.. && npm run build:landing",
+      "installCommand": "cd ../.. && npm install",
+      "outputDirectory": "apps/landing-page/.next",
+      "env": {
+        "NEXT_PUBLIC_API_URL": "https://invitation-backend-api.vercel.app",
+        "NEXT_PUBLIC_ENVIRONMENT": "production"
+      }
+    },
+    {
+      "name": "invitation-user-dashboard", 
+      "source": "apps/user-dashboard",
+      "framework": "nextjs",
+      "buildCommand": "cd ../.. && npm run build:user",
+      "installCommand": "cd ../.. && npm install", 
+      "outputDirectory": "apps/user-dashboard/.next",
+      "env": {
+        "NEXT_PUBLIC_API_URL": "https://invitation-backend-api.vercel.app",
+        "NEXT_PUBLIC_ENVIRONMENT": "production"
+      }
+    },
+    {
+      "name": "invitation-admin-dashboard",
+      "source": "apps/admin-dashboard",
+      "framework": "nextjs",
+      "buildCommand": "cd ../.. && npm run build:admin", 
+      "installCommand": "cd ../.. && npm install",
+      "outputDirectory": "apps/admin-dashboard/.next",
+      "env": {
+        "NEXT_PUBLIC_API_URL": "https://invitation-backend-api.vercel.app",
+        "NEXT_PUBLIC_ENVIRONMENT": "production"
+      }
+    }
+  ]
+}
