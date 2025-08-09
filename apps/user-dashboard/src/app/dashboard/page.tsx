@@ -66,12 +66,6 @@ function DashboardPage() {
                 Create beautiful invitations for your special events
               </p>
               
-              {/* RLS Security Indicator */}
-              <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mb-6">
-                <Shield className="w-3 h-3 mr-1" />
-                Row Level Security Active - Your data is private and secure
-              </div>
-              
               <div className="flex justify-center space-x-4">
                 <Button 
                   onClick={handleCreateInvitation}
