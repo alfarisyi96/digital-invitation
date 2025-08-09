@@ -4,332 +4,265 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { useAuth } from '@/contexts/AuthContext'
-import { useInvitations } from '@/hooks/useInvitations'
-import { formatDate, getInitials, pluralize } from '@/lib/utils'
+import { useUser, withAuth } from '@/contexts/SupabaseUserContext'
+import { useUserInvitations, useUserProfile } from '@/hooks/useSupabaseData'
+import Header from '@/components/Header'
 import { 
   Plus, 
-  Heart, 
   Calendar, 
-  Users, 
   Eye, 
   Share2, 
-  MoreVertical,
   Search,
-  Filter,
-  Bell,
-  Settings,
   Gift,
-  Cake,
-  GraduationCap,
-  Baby,
-  Briefcase,
-  Star
+  Shield
 } from 'lucide-react'
-import { InvitationType, InvitationStatus } from '@/types'
 
-export default function DashboardPage() {
-  const { user, logout } = useAuth()
-  const { invitations, isLoading } = useInvitations()
+function DashboardPage() {
+  const { user } = useUser()
+  const { invitations, loading: invitationsLoading, createInvitation } = useUserInvitations()
+  const { profile, loading: profileLoading } = useUserProfile()
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedFilter, setSelectedFilter] = useState<'all' | InvitationStatus>('all')
-  const router = useRouter()
 
-  const filteredInvitations = invitations.filter(invitation => {
-    const matchesSearch = invitation.title.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesFilter = selectedFilter === 'all' || invitation.status === selectedFilter
-    return matchesSearch && matchesFilter
-  })
+  // Filter invitations based on search query (client-side filtering of RLS-filtered data)
+  const filteredInvitations = invitations.filter(invitation =>
+    invitation.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    invitation.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  )
 
-  const stats = {
-    total: invitations.length,
-    published: invitations.filter(inv => inv.status === InvitationStatus.PUBLISHED).length,
-    draft: invitations.filter(inv => inv.status === InvitationStatus.DRAFT).length,
-    views: invitations.reduce((sum, inv) => sum + (inv.analytics?.views || 0), 0)
-  }
-
-  const getTypeIcon = (type: InvitationType) => {
-    switch (type) {
-      case InvitationType.WEDDING:
-        return <Heart className="w-4 h-4" />
-      case InvitationType.BIRTHDAY:
-        return <Cake className="w-4 h-4" />
-      case InvitationType.GRADUATION:
-        return <GraduationCap className="w-4 h-4" />
-      case InvitationType.BABY_SHOWER:
-        return <Baby className="w-4 h-4" />
-      case InvitationType.BUSINESS:
-        return <Briefcase className="w-4 h-4" />
-      default:
-        return <Calendar className="w-4 h-4" />
+  const handleCreateInvitation = async () => {
+    const newInvitation = {
+      title: 'New Invitation',
+      description: 'Click to edit this invitation',
+      event_date: null,
+      event_location: null,
+      template_id: null,
+      status: 'draft' as const
     }
+
+    await createInvitation(newInvitation)
   }
 
-  const getStatusColor = (status: InvitationStatus) => {
-    switch (status) {
-      case InvitationStatus.PUBLISHED:
-        return 'bg-green-100 text-green-800'
-      case InvitationStatus.DRAFT:
-        return 'bg-yellow-100 text-yellow-800'
-      case InvitationStatus.ARCHIVED:
-        return 'bg-gray-100 text-gray-800'
-      default:
-        return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  if (!user) {
-    router.push('/login')
-    return null
+  if (profileLoading || invitationsLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    )
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Mobile Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div className="px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-rose-500 to-pink-500 rounded-full flex items-center justify-center">
-                {user.avatar ? (
-                  <img src={user.avatar} alt={user.name} className="w-full h-full rounded-full object-cover" />
-                ) : (
-                  <span className="text-white font-medium text-sm">{getInitials(user.name)}</span>
-                )}
+      <Header />
+      
+      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        {/* Welcome Section with RLS Status */}
+        <div className="px-4 py-6 sm:px-0">
+          <div className="border-4 border-dashed border-gray-200 rounded-lg p-8">
+            <div className="text-center">
+              <h1 className="text-4xl font-bold text-gray-900 mb-4">
+                Welcome back, {user?.name || profile?.full_name || 'User'}! 
+              </h1>
+              <p className="text-xl text-gray-600 mb-6">
+                Create beautiful invitations for your special events
+              </p>
+              
+              {/* RLS Security Indicator */}
+              <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mb-6">
+                <Shield className="w-3 h-3 mr-1" />
+                Row Level Security Active - Your data is private and secure
               </div>
-              <div>
-                <h1 className="text-lg font-semibold text-gray-900">
-                  Hello, {user.name.split(' ')[0]}! 👋
-                </h1>
-                <p className="text-sm text-gray-500">Let's create something beautiful</p>
+              
+              <div className="flex justify-center space-x-4">
+                <Button 
+                  onClick={handleCreateInvitation}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create New Invitation
+                </Button>
               </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <button className="p-2 hover:bg-gray-100 rounded-full relative">
-                <Bell className="w-5 h-5 text-gray-600" />
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
-              </button>
-              <button 
-                onClick={() => router.push('/settings')}
-                className="p-2 hover:bg-gray-100 rounded-full"
-              >
-                <Settings className="w-5 h-5 text-gray-600" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Stats Cards */}
-      <div className="px-4 py-6">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
-              <div className="text-sm text-gray-500">Total Invites</div>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-green-600">{stats.published}</div>
-              <div className="text-sm text-gray-500">Published</div>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-yellow-600">{stats.draft}</div>
-              <div className="text-sm text-gray-500">Drafts</div>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-blue-600">{stats.views}</div>
-              <div className="text-sm text-gray-500">Total Views</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-gray-900">Quick Actions</h2>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Button 
-              onClick={() => router.push('/create')}
-              className="h-16 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 flex-col space-y-1"
-            >
-              <Plus className="w-6 h-6" />
-              <span className="text-sm">New Invitation</span>
-            </Button>
-            <Button 
-              variant="outline"
-              className="h-16 flex-col space-y-1 border-gray-200"
-            >
-              <Gift className="w-6 h-6 text-gray-600" />
-              <span className="text-sm text-gray-600">Browse Templates</span>
-            </Button>
           </div>
         </div>
 
-        {/* Search and Filter */}
-        <div className="mb-6 space-y-4">
+        {/* Search Bar */}
+        <div className="px-4 mb-6">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-gray-400" />
+            </div>
             <input
               type="text"
-              placeholder="Search invitations..."
+              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              placeholder="Search your invitations..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent"
             />
           </div>
-          
-          <div className="flex space-x-2 overflow-x-auto pb-2">
-            {['all', 'draft', 'published', 'archived'].map((filter) => (
-              <button
-                key={filter}
-                onClick={() => setSelectedFilter(filter as any)}
-                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                  selectedFilter === filter
-                    ? 'bg-rose-500 text-white'
-                    : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-                }`}
-              >
-                {filter.charAt(0).toUpperCase() + filter.slice(1)}
-              </button>
-            ))}
+        </div>
+
+        {/* Stats Cards */}
+        <div className="px-4 mb-8">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Invitations</CardTitle>
+                <Gift className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{invitations.length}</div>
+                <p className="text-xs text-muted-foreground">
+                  Only your invitations (RLS protected)
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Draft</CardTitle>
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {invitations.filter(inv => inv.status === 'draft').length}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Waiting to be completed
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Published</CardTitle>
+                <Eye className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {invitations.filter(inv => inv.status === 'published').length}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Ready to share
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Sent</CardTitle>
+                <Share2 className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {invitations.filter(inv => inv.status === 'sent').length}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Delivered to guests
+                </p>
+              </CardContent>
+            </Card>
           </div>
         </div>
 
         {/* Invitations List */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-gray-900">
-              Your Invitations ({filteredInvitations.length})
-            </h2>
-            <Filter className="w-5 h-5 text-gray-400" />
-          </div>
-
-          {isLoading ? (
-            <div className="space-y-4">
-              {[...Array(3)].map((_, i) => (
-                <Card key={i} className="border-0 shadow-sm">
-                  <CardContent className="p-4">
-                    <div className="animate-pulse">
-                      <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                      <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+        <div className="px-4">
+          <div className="bg-white shadow rounded-lg">
+            <div className="px-4 py-5 sm:p-6">
+              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                Your Invitations
+                {searchQuery && (
+                  <span className="text-sm font-normal text-gray-500 ml-2">
+                    (filtered by "{searchQuery}")
+                  </span>
+                )}
+              </h3>
+              
+              {filteredInvitations.length === 0 ? (
+                <div className="text-center py-12">
+                  <Gift className="mx-auto h-12 w-12 text-gray-400" />
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">
+                    {searchQuery ? 'No matching invitations' : 'No invitations yet'}
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {searchQuery 
+                      ? 'Try adjusting your search terms'
+                      : 'Get started by creating your first invitation.'
+                    }
+                  </p>
+                  {!searchQuery && (
+                    <div className="mt-6">
+                      <Button 
+                        onClick={handleCreateInvitation}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create New Invitation
+                      </Button>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : filteredInvitations.length === 0 ? (
-            <Card className="border-0 shadow-sm">
-              <CardContent className="p-8 text-center">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Calendar className="w-8 h-8 text-gray-400" />
+                  )}
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No invitations found</h3>
-                <p className="text-gray-500 mb-4">
-                  {searchQuery || selectedFilter !== 'all' 
-                    ? 'Try adjusting your search or filters'
-                    : 'Start by creating your first invitation'
-                  }
-                </p>
-                <Button 
-                  onClick={() => router.push('/create')}
-                  className="bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Invitation
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-4">
-              {filteredInvitations.map((invitation) => (
-                <Card key={invitation.id} className="border-0 shadow-sm hover:shadow-md transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <div className="text-gray-600">
-                            {getTypeIcon(invitation.type)}
-                          </div>
-                          <h3 className="font-semibold text-gray-900 truncate">
+              ) : (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {filteredInvitations.map((invitation) => (
+                    <Card key={invitation.id} className="hover:shadow-md transition-shadow cursor-pointer">
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-sm font-medium truncate">
                             {invitation.title}
-                          </h3>
-                        </div>
-                        
-                        <div className="flex items-center space-x-4 text-sm text-gray-500 mb-3">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(invitation.status)}`}>
+                          </CardTitle>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            invitation.status === 'draft' 
+                              ? 'bg-gray-100 text-gray-800'
+                              : invitation.status === 'published'
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-green-100 text-green-800'
+                          }`}>
                             {invitation.status}
                           </span>
-                          <span>{formatDate(invitation.createdAt)}</span>
                         </div>
-
-                        {invitation.analytics && (
-                          <div className="flex items-center space-x-4 text-sm text-gray-500">
-                            <div className="flex items-center space-x-1">
-                              <Eye className="w-3 h-3" />
-                              <span>{invitation.analytics.views}</span>
-                            </div>
-                            <div className="flex items-center space-x-1">
-                              <Users className="w-3 h-3" />
-                              <span>{invitation.analytics.rsvpResponses}</span>
-                            </div>
-                            <div className="flex items-center space-x-1">
-                              <Share2 className="w-3 h-3" />
-                              <span>{invitation.analytics.shareCount}</span>
-                            </div>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                          {invitation.description || 'No description'}
+                        </p>
+                        
+                        {invitation.event_date && (
+                          <div className="flex items-center text-xs text-gray-500 mb-2">
+                            <Calendar className="w-3 h-3 mr-1" />
+                            {new Date(invitation.event_date).toLocaleDateString()}
                           </div>
                         )}
-                      </div>
-                      
-                      <button className="p-2 hover:bg-gray-100 rounded-full">
-                        <MoreVertical className="w-4 h-4 text-gray-400" />
-                      </button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                        
+                        {invitation.event_location && (
+                          <div className="text-xs text-gray-500 mb-3 truncate">
+                            📍 {invitation.event_location}
+                          </div>
+                        )}
+                        
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-gray-400">
+                            Created {new Date(invitation.created_at).toLocaleDateString()}
+                          </span>
+                          <div className="flex space-x-1">
+                            <Button size="sm" variant="outline">
+                              <Eye className="w-3 h-3" />
+                            </Button>
+                            <Button size="sm" variant="outline">
+                              <Share2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
-      </div>
-
-      {/* Bottom Navigation (Mobile) */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 lg:hidden">
-        <div className="grid grid-cols-5 h-16">
-          <button className="flex flex-col items-center justify-center space-y-1 text-rose-500">
-            <Calendar className="w-5 h-5" />
-            <span className="text-xs">Dashboard</span>
-          </button>
-          <button 
-            onClick={() => router.push('/create')}
-            className="flex flex-col items-center justify-center space-y-1 text-gray-400"
-          >
-            <Plus className="w-5 h-5" />
-            <span className="text-xs">Create</span>
-          </button>
-          <button className="flex flex-col items-center justify-center space-y-1 text-gray-400">
-            <Gift className="w-5 h-5" />
-            <span className="text-xs">Templates</span>
-          </button>
-          <button className="flex flex-col items-center justify-center space-y-1 text-gray-400">
-            <Star className="w-5 h-5" />
-            <span className="text-xs">Favorites</span>
-          </button>
-          <button 
-            onClick={logout}
-            className="flex flex-col items-center justify-center space-y-1 text-gray-400"
-          >
-            <Settings className="w-5 h-5" />
-            <span className="text-xs">Profile</span>
-          </button>
-        </div>
-      </div>
+      </main>
     </div>
   )
 }
+
+export default withAuth(DashboardPage)

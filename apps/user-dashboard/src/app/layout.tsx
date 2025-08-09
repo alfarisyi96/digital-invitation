@@ -1,13 +1,13 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
-import { AuthProvider } from '@/contexts/AuthContext'
+import { UserProvider } from '@/contexts/SupabaseUserContext'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'User Dashboard - Invitation Builder',
-  description: 'Create beautiful invitations for your special events',
+  title: 'InviteMe - Create Beautiful Invitations',
+  description: 'Create beautiful digital invitations for weddings, birthdays, business events, and more',
 }
 
 export default function RootLayout({
@@ -18,9 +18,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <AuthProvider>
+        <UserProvider>
           {children}
-        </AuthProvider>
+        </UserProvider>
       </body>
     </html>
   )
