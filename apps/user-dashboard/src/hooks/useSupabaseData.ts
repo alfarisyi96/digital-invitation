@@ -138,6 +138,34 @@ export function useUserInvitations() {
     }
   }
 
+  const publishInvitation = async (id: string) => {
+    try {
+      setError(null)
+      const updated = await supabaseService.publishInvitation(id)
+      if (updated) {
+        setInvitations(prev => prev.map(inv => inv.id === id ? updated : inv))
+      }
+      return updated
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to publish invitation')
+      return null
+    }
+  }
+
+  const unpublishInvitation = async (id: string) => {
+    try {
+      setError(null)
+      const updated = await supabaseService.unpublishInvitation(id)
+      if (updated) {
+        setInvitations(prev => prev.map(inv => inv.id === id ? updated : inv))
+      }
+      return updated
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to unpublish invitation')
+      return null
+    }
+  }
+
   return {
     invitations,
     loading,
@@ -145,6 +173,8 @@ export function useUserInvitations() {
     createInvitation,
     updateInvitation,
     deleteInvitation,
+    publishInvitation,
+    unpublishInvitation,
     refetch: fetchInvitations
   }
 }

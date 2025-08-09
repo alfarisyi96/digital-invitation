@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -33,15 +33,15 @@ import {
 
 // Wedding form validation schema
 const weddingFormSchema = z.object({
-  title: z.string().min(1, 'Title is required'),
-  bride_full_name: z.string().min(1, 'Bride name is required'),
+  title: z.string(),
+  bride_full_name: z.string(),
   bride_nickname: z.string().optional(),
-  groom_full_name: z.string().min(1, 'Groom name is required'),
+  groom_full_name: z.string(),
   groom_nickname: z.string().optional(),
-  wedding_date: z.string().min(1, 'Wedding date is required'),
+  wedding_date: z.string(),
   ceremony_time: z.string().optional(),
   reception_time: z.string().optional(),
-  venue_name: z.string().min(1, 'Venue name is required'),
+  venue_name: z.string(),
   venue_address: z.string().optional(),
   invitation_message: z.string().optional(),
   bride_father: z.string().optional(),
@@ -93,21 +93,38 @@ const categories = [
 
 function CreateInvitationPage() {
   const router = useRouter()
-  const { createInvitation, updateInvitation } = useUserInvitations()
-  const [currentStep, setCurrentStep] = useState(1)
-  const [selectedCategory, setSelectedCategory] = useState<InvitationType | null>(null)
+  const searchParams = useSearchParams()
+  const { createInvitation, updateInvitation, invitations } = useUserInvitations()
+  
+  // Check if we're in edit mode
+  const editId = searchParams.get('edit')
+  const isEditMode = !!editId
+  const existingInvitation = isEditMode ? invitations.find(inv => inv.id === editId) : null
+  
+  // Initialize step from URL or default to 1
+  const [currentStep, setCurrentStep] = useState(() => {
+    const step = searchParams.get('step')
+    return step ? parseInt(step) : 1
+  })
+  const [selectedCategory, setSelectedCategory] = useState<InvitationType | null>(() => {
+    return (searchParams.get('category') as InvitationType) || null
+  })
   const [selectedPackage, setSelectedPackage] = useState<PackageType>('basic')
-  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(() => {
+    return searchParams.get('template') || null
+  })
+  const [formData, setFormData] = useState<any>({})
   const [createdInvitation, setCreatedInvitation] = useState<any>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
 
   const { templates, loading: templatesLoading } = usePublicTemplates(selectedCategory || undefined)
-
+  
   // Filter templates by current package
-  const basicTemplates = templates.filter(t => t.package_type === 'basic')
-  const goldTemplates = templates.filter(t => t.package_type === 'gold')
+  const basicTemplates = templates.filter(t => !t.is_premium)
+  const goldTemplates = templates.filter(t => t.is_premium)
 
   const form = useForm<WeddingFormValues>({
     resolver: zodResolver(weddingFormSchema),
@@ -130,11 +147,117 @@ function CreateInvitationPage() {
     }
   })
 
+  // Load existing invitation data in edit mode
+  useEffect(() => {
+    if (isEditMode && existingInvitation) {
+      // Set category based on custom_data or default to 'wedding'
+      const customData = existingInvitation.custom_data as any
+      if (customData?.type) {
+        setSelectedCategory(customData.type)
+      } else {
+        // Infer category from invitation content or default to wedding
+        setSelectedCategory('wedding') // For now, default to wedding
+      }
+      
+      // Set template from existing invitation
+      if (existingInvitation.template_id) {
+        setSelectedTemplate(existingInvitation.template_id)
+      }
+      
+      // Parse custom_data if it exists and contains form data
+      if (customData) {
+        // Populate form with existing data
+        const formValues = {
+          title: existingInvitation.title || '',
+          bride_full_name: customData.bride_full_name || '',
+          bride_nickname: customData.bride_nickname || '',
+          groom_full_name: customData.groom_full_name || '',
+          groom_nickname: customData.groom_nickname || '',
+          wedding_date: existingInvitation.event_date ? 
+            existingInvitation.event_date.split('T')[0] : '',
+          ceremony_time: customData.ceremony_time || '',
+          reception_time: customData.reception_time || '',
+          venue_name: customData.venue_name || '',
+          venue_address: existingInvitation.location || customData.venue_address || '',
+          invitation_message: existingInvitation.description || customData.invitation_message || '',
+          bride_father: customData.bride_father || '',
+          bride_mother: customData.bride_mother || '',
+          groom_father: customData.groom_father || '',
+          groom_mother: customData.groom_mother || '',
+        }
+        
+        form.reset(formValues)
+        setFormData(formValues)
+      }
+    }
+  }, [isEditMode, existingInvitation, form])
+
+  // Function to update URL with current state
+  const updateURL = (step: number, category?: InvitationType | null, template?: string | null) => {
+    const params = new URLSearchParams(window.location.search)
+    params.set('step', step.toString())
+    if (category) {
+      params.set('category', category)
+    } else {
+      params.delete('category')
+    }
+    if (template) {
+      params.set('template', template)
+    } else {
+      params.delete('template')
+    }
+    
+    const url = `/create?${params.toString()}`
+    // Use pushState to update URL without triggering navigation
+    window.history.pushState(null, '', url)
+  }
+
+  // Custom setCurrentStep that also updates URL
+  const setCurrentStepWithHistory = (step: number) => {
+    setCurrentStep(step)
+    updateURL(step, selectedCategory, selectedTemplate)
+  }
+
+  // Sync state with URL parameters on component mount and URL changes
+  useEffect(() => {
+    const step = searchParams.get('step')
+    const category = searchParams.get('category') as InvitationType
+    const template = searchParams.get('template')
+    
+    if (step && parseInt(step) !== currentStep) {
+      setCurrentStep(parseInt(step))
+    }
+    if (category && category !== selectedCategory) {
+      setSelectedCategory(category)
+    }
+    if (template && template !== selectedTemplate) {
+      setSelectedTemplate(template)
+    }
+  }, [searchParams]) // Re-run when URL search params change
+
+  // Handle browser back/forward buttons
+  useEffect(() => {
+    const handlePopState = () => {
+      // Re-read the URL parameters when user navigates with browser buttons
+      const params = new URLSearchParams(window.location.search)
+      const step = params.get('step')
+      const category = params.get('category') as InvitationType
+      const template = params.get('template')
+      
+      if (step) setCurrentStep(parseInt(step))
+      if (category) setSelectedCategory(category)
+      if (template) setSelectedTemplate(template)
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
   const handleBack = () => {
     if (currentStep === 4) {
-      setCurrentStep(3) // Back to template selection
+      setCurrentStepWithHistory(3) // Back to template selection
     } else if (currentStep > 1) {
-      setCurrentStep(currentStep - 1)
+      setCurrentStepWithHistory(currentStep - 1) // Go back
     } else {
       router.push('/dashboard')
     }
@@ -170,19 +293,76 @@ function CreateInvitationPage() {
   }
 
   const handleSaveInvitation = async () => {
-    if (!selectedTemplate || !createdInvitation) return
+    if (!selectedTemplate) return
 
     const template = templates.find(t => t.id === selectedTemplate)
     if (!template) return
 
     // Check if user needs to upgrade package
-    if (template.package_type === 'gold' && selectedPackage === 'basic') {
+    if (template.is_premium && selectedPackage === 'basic') {
       setShowUpgradeModal(true)
       return
     }
 
-    // Apply template to invitation
-    await finalizeInvitation(template)
+    // Create the invitation first, then apply template
+    await handleFinalSave()
+  }
+
+  // Development only: Auto-fill form with sample data
+  const autoFillForm = () => {
+    if (process.env.NODE_ENV !== 'development') return
+    
+    const sampleData = {
+      title: 'Sarah & John Wedding Invitation',
+      bride_full_name: 'Sarah Elizabeth Johnson',
+      bride_nickname: 'Sarah',
+      groom_full_name: 'John Michael Smith',
+      groom_nickname: 'John',
+      wedding_date: '2025-12-15',
+      ceremony_time: '14:00',
+      reception_time: '18:00',
+      venue_name: 'Grand Ballroom Hotel',
+      venue_address: '123 Elegant Street, Wedding City, WC 12345',
+      invitation_message: 'We joyfully invite you to celebrate our special day with us. Your presence would make our wedding complete!',
+      bride_father: 'Mr. Robert Johnson',
+      bride_mother: 'Mrs. Mary Johnson',
+      groom_father: 'Mr. David Smith',
+      groom_mother: 'Mrs. Lisa Smith',
+    }
+    
+    // Use form.setValue to set all the values
+    Object.entries(sampleData).forEach(([key, value]) => {
+      form.setValue(key as keyof WeddingFormValues, value)
+    })
+  }
+
+  // Development only: Super quick start - skip to template selection with pre-filled data
+  const superQuickStart = () => {
+    if (process.env.NODE_ENV !== 'development') return
+    
+    // Set category
+    setSelectedCategory('wedding')
+    
+    // Set form data
+    const sampleFormData: WeddingFormData = {
+      bride_full_name: 'Sarah Elizabeth Johnson',
+      bride_nickname: 'Sarah',
+      groom_full_name: 'John Michael Smith',
+      groom_nickname: 'John',
+      wedding_date: '2025-12-15',
+      ceremony_time: '14:00',
+      reception_time: '18:00',
+      venue_name: 'Grand Ballroom Hotel',
+      venue_address: '123 Elegant Street, Wedding City, WC 12345',
+      invitation_message: 'We joyfully invite you to celebrate our special day with us. Your presence would make our wedding complete!',
+      bride_father: 'Mr. Robert Johnson',
+      bride_mother: 'Mrs. Mary Johnson',
+      groom_father: 'Mr. David Smith',
+      groom_mother: 'Mrs. Lisa Smith',
+    }
+    
+    setFormData(sampleFormData)
+    setCurrentStepWithHistory(3) // Go straight to template selection
   }
 
   const onSubmit = async (data: WeddingFormValues) => {
@@ -191,7 +371,8 @@ function CreateInvitationPage() {
     setIsSubmitting(true)
     
     try {
-      const formData: WeddingFormData = {
+      // Store form data locally (don't save to database yet)
+      const localFormData: WeddingFormData = {
         bride_full_name: data.bride_full_name,
         bride_nickname: data.bride_nickname,
         groom_full_name: data.groom_full_name,
@@ -208,23 +389,72 @@ function CreateInvitationPage() {
         groom_mother: data.groom_mother,
       }
 
-      const invitation = await createInvitation({
-        title: data.title,
-        type: selectedCategory,
-        form_data: formData,
-        package_type: selectedPackage
-      })
-
-      if (invitation) {
-        setCreatedInvitation(invitation)
-        setCurrentStep(3) // Move to template selection
-      }
+      setFormData(localFormData)
+      setCurrentStepWithHistory(3) // Move to template selection
     } catch (error) {
-      console.error('Error creating invitation:', error)
+      console.error('Error preparing invitation data:', error)
     } finally {
       setIsSubmitting(false)
     }
   }
+
+  // New function for final save (called from preview page)
+  const handleFinalSave = async () => {
+    setIsSaving(true)
+    try {
+      if (isEditMode && existingInvitation) {
+        // Update existing invitation
+        const updateData = {
+          title: formData.bride_full_name && formData.groom_full_name 
+            ? `${formData.bride_full_name} & ${formData.groom_full_name} Wedding`
+            : formData.title || existingInvitation.title,
+          event_date: formData.wedding_date ? new Date(formData.wedding_date).toISOString() : existingInvitation.event_date,
+          location: formData.venue_address || formData.venue_name || existingInvitation.location,
+          description: formData.invitation_message || existingInvitation.description,
+          custom_data: formData,
+          template_id: selectedTemplate || existingInvitation.template_id
+        }
+
+        const updatedInvitation = await updateInvitation(existingInvitation.id, updateData)
+        if (updatedInvitation) {
+          setCreatedInvitation(updatedInvitation)
+          // Redirect back to dashboard after successful update
+          router.push('/dashboard')
+        }
+      } else {
+        // Create new invitation
+        const invitation = await createInvitation({
+          title: formData.bride_full_name && formData.groom_full_name 
+            ? `${formData.bride_full_name} & ${formData.groom_full_name} Wedding`
+            : 'Wedding Invitation',
+          type: selectedCategory!,
+          form_data: formData,
+          package_type: selectedPackage
+        })
+
+        if (invitation) {
+          setCreatedInvitation(invitation)
+          
+          // Apply the selected template to the invitation
+          if (selectedTemplate) {
+            await updateInvitation(invitation.id, {
+              template_id: selectedTemplate
+            })
+          }
+          
+          setShowShareModal(true) // Show share modal after successful save
+        }
+      }
+    } catch (error) {
+      console.error('Error saving invitation:', error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  useEffect(() => {
+    console.log('Current step changed:', currentStep)
+  }, [currentStep])
 
   const renderStepContent = () => {
     switch (currentStep) {
@@ -232,8 +462,42 @@ function CreateInvitationPage() {
         return (
           <div className="space-y-4 sm:space-y-6">
             <div className="text-center">
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Choose Your Event Category</h2>
-              <p className="text-sm sm:text-base text-gray-600">Select the type of invitation you want to create</p>
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
+                {isEditMode ? 'Update Your Event Category' : 'Choose Your Event Category'}
+              </h2>
+              <p className="text-sm sm:text-base text-gray-600">
+                {isEditMode 
+                  ? 'Change the type of invitation if needed'
+                  : 'Select the type of invitation you want to create'
+                }
+              </p>
+              
+              {/* Development Only: Quick start button */}
+              {process.env.NODE_ENV === 'development' && (
+                <div className="mt-4 space-x-2">
+                  <Button 
+                    type="button"
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      setSelectedCategory('wedding')
+                      setCurrentStepWithHistory(2)
+                    }}
+                    className="bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100"
+                  >
+                    ⚡ Quick Start Wedding
+                  </Button>
+                  <Button 
+                    type="button"
+                    variant="outline" 
+                    size="sm"
+                    onClick={superQuickStart}
+                    className="bg-green-50 border-green-300 text-green-700 hover:bg-green-100"
+                  >
+                    🚀 Super Quick Start (Templates)
+                  </Button>
+                </div>
+              )}
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -249,7 +513,7 @@ function CreateInvitationPage() {
                     }`}
                     onClick={() => {
                       setSelectedCategory(category.id)
-                      setCurrentStep(2) // Auto-advance to form
+                      setCurrentStepWithHistory(2) // Auto-advance to form
                     }}
                   >
                     <CardContent className="p-4 sm:p-6 text-center">
@@ -273,6 +537,21 @@ function CreateInvitationPage() {
               <div className="text-center">
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Wedding Details</h2>
                 <p className="text-sm sm:text-base text-gray-600">Tell us about your special day</p>
+                
+                {/* Development Only: Auto-fill button */}
+                {process.env.NODE_ENV === 'development' && (
+                  <div className="mt-4">
+                    <Button 
+                      type="button"
+                      variant="outline" 
+                      size="sm"
+                      onClick={autoFillForm}
+                      className="bg-yellow-50 border-yellow-300 text-yellow-700 hover:bg-yellow-100"
+                    >
+                      🚀 Auto-fill for Testing
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
@@ -531,8 +810,9 @@ function CreateInvitationPage() {
                             selectedTemplate === template.id ? 'ring-2 ring-blue-500 bg-blue-50' : ''
                           }`}
                           onClick={() => {
+                            console.log('Free template clicked:', template.id, template.name)
                             setSelectedTemplate(template.id)
-                            setCurrentStep(4) // Go to preview
+                            setCurrentStepWithHistory(4) // Go to preview
                           }}
                         >
                           <CardContent className="p-3 sm:p-4">
@@ -571,8 +851,9 @@ function CreateInvitationPage() {
                             selectedTemplate === template.id ? 'ring-2 ring-yellow-500 bg-yellow-50' : ''
                           } ${selectedPackage === 'basic' ? 'opacity-75' : ''}`}
                           onClick={() => {
+                            console.log('Premium template clicked:', template.id, template.name)
                             setSelectedTemplate(template.id)
-                            setCurrentStep(4) // Go to preview
+                            setCurrentStepWithHistory(4) // Go to preview
                           }}
                         >
                           <CardContent className="p-3 sm:p-4">
@@ -613,10 +894,11 @@ function CreateInvitationPage() {
         )
 
       case 4:
-        if (!selectedTemplate || !createdInvitation) {
-          setCurrentStep(3) // Go back to template selection
-          return null
-        }
+        // Temporarily disable this check to debug
+        // if (!selectedTemplate) {
+        //   setCurrentStep(3) // Go back to template selection
+        //   return null
+        // }
 
         const selectedTemplateData = templates.find(t => t.id === selectedTemplate)
         
@@ -640,37 +922,40 @@ function CreateInvitationPage() {
                   </div>
                   
                   {/* Invitation Content Preview */}
-                  {selectedCategory === 'wedding' && createdInvitation.form_data && (
+                  {selectedCategory === 'wedding' && formData && (
                     <div className="space-y-4 text-left">
                       <div className="text-center">
                         <h3 className="text-lg sm:text-2xl font-bold text-gray-900 mb-2">
-                          {createdInvitation.title}
+                          {formData.bride_full_name && formData.groom_full_name 
+                            ? `${formData.bride_full_name} & ${formData.groom_full_name} Wedding`
+                            : 'Wedding Invitation'
+                          }
                         </h3>
                       </div>
                       
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                         <div>
                           <span className="font-medium">Bride:</span>
-                          <p className="break-words">{createdInvitation.form_data.bride_full_name}</p>
+                          <p className="break-words">{formData.bride_full_name}</p>
                         </div>
                         <div>
                           <span className="font-medium">Groom:</span>
-                          <p className="break-words">{createdInvitation.form_data.groom_full_name}</p>
+                          <p className="break-words">{formData.groom_full_name}</p>
                         </div>
                         <div>
                           <span className="font-medium">Date:</span>
-                          <p>{createdInvitation.form_data.wedding_date}</p>
+                          <p>{formData.wedding_date}</p>
                         </div>
                         <div>
                           <span className="font-medium">Venue:</span>
-                          <p className="break-words">{createdInvitation.form_data.venue_name}</p>
+                          <p className="break-words">{formData.venue_name}</p>
                         </div>
                       </div>
                       
-                      {createdInvitation.form_data.invitation_message && (
+                      {formData.invitation_message && (
                         <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
                           <span className="font-medium">Message:</span>
-                          <p className="mt-1 text-gray-700 text-sm break-words">{createdInvitation.form_data.invitation_message}</p>
+                          <p className="mt-1 text-gray-700 text-sm break-words">{formData.invitation_message}</p>
                         </div>
                       )}
                     </div>
@@ -704,10 +989,28 @@ function CreateInvitationPage() {
       <div className="max-w-4xl mx-auto py-4 sm:py-8 px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 sm:mb-8 space-y-4 sm:space-y-0">
-          <Button variant="ghost" onClick={handleBack} className="flex items-center self-start">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            {currentStep === 4 ? 'Choose Template' : 'Back'}
-          </Button>
+          <div className="flex items-center justify-between w-full sm:w-auto">
+            <Button variant="ghost" onClick={handleBack} className="flex items-center">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              {currentStep === 4 ? 'Choose Template' : 'Back'}
+            </Button>
+            
+            {/* Edit Mode Title */}
+            {isEditMode && (
+              <div className="sm:hidden">
+                <h1 className="text-lg font-semibold text-gray-900">Edit Invitation</h1>
+                <p className="text-sm text-gray-600">{existingInvitation?.title}</p>
+              </div>
+            )}
+          </div>
+          
+          {/* Desktop Edit Mode Title */}
+          {isEditMode && (
+            <div className="hidden sm:block text-center">
+              <h1 className="text-2xl font-bold text-gray-900">Edit Invitation</h1>
+              <p className="text-gray-600">{existingInvitation?.title}</p>
+            </div>
+          )}
           
           {currentStep === 4 ? (
             <Button 
@@ -715,7 +1018,7 @@ function CreateInvitationPage() {
               disabled={isSubmitting}
               className="bg-green-600 hover:bg-green-700 w-full sm:w-auto"
             >
-              {isSubmitting ? 'Saving...' : 'Save Invitation'}
+              {isSubmitting ? 'Saving...' : isEditMode ? 'Update Invitation' : 'Save Invitation'}
             </Button>
           ) : (
             <div className="flex flex-wrap items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm text-gray-600 order-first sm:order-none">

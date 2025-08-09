@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useUser, withAuth } from '@/contexts/SupabaseUserContext'
 import { useUserInvitations, useUserProfile } from '@/hooks/useSupabaseData'
+import { supabaseService } from '@/services/supabaseService'
 import Header from '@/components/Header'
 import { 
   Plus, 
@@ -14,24 +15,80 @@ import {
   Share2, 
   Search,
   Gift,
-  Shield
+  Shield,
+  Edit,
+  Globe,
+  Users,
+  ExternalLink,
+  MoreVertical
 } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
 
 function DashboardPage() {
   const { user } = useUser()
   const router = useRouter()
-  const { invitations, loading: invitationsLoading } = useUserInvitations()
+  const { 
+    invitations, 
+    loading: invitationsLoading, 
+    publishInvitation,
+    unpublishInvitation 
+  } = useUserInvitations()
   const { profile, loading: profileLoading } = useUserProfile()
   const [searchQuery, setSearchQuery] = useState('')
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   // Filter invitations based on search query (client-side filtering of RLS-filtered data)
   const filteredInvitations = invitations.filter(invitation =>
     invitation.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (invitation.form_data?.invitation_message?.toLowerCase().includes(searchQuery.toLowerCase()))
+    (invitation.description?.toLowerCase().includes(searchQuery.toLowerCase()))
   )
 
   const handleCreateInvitation = () => {
-    router.push('/create')
+    router.push('/create?step=1')
+  }
+
+  const handlePublishInvitation = async (id: string) => {
+    setActionLoading(id)
+    try {
+      await publishInvitation(id)
+    } catch (error) {
+      console.error('Error publishing invitation:', error)
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleUnpublishInvitation = async (id: string) => {
+    setActionLoading(id)
+    try {
+      await unpublishInvitation(id)
+    } catch (error) {
+      console.error('Error unpublishing invitation:', error)
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const openInvitationPreview = (slugOrId: string) => {
+    if (slugOrId) {
+      // For private preview in user dashboard - use a preview route that doesn't require public publishing
+      // This route would be handled within the user dashboard app for private previews
+      window.open(`/preview/${slugOrId}`, '_blank')
+    }
+  }
+
+  const handleEditInvitation = (id: string) => {
+    router.push(`/create?step=1&edit=${id}`)
+  }
+
+  const getStatusBadge = (status: string, isPublished: boolean) => {
+    if (status === 'published' && isPublished) {
+      return 'bg-green-100 text-green-800'
+    } else if (status === 'unpublished' || !isPublished) {
+      return 'bg-red-100 text-red-800'
+    } else {
+      return 'bg-gray-100 text-gray-800'
+    }
   }
 
   if (profileLoading || invitationsLoading) {
@@ -125,7 +182,7 @@ function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {invitations.filter(inv => inv.status === 'published').length}
+                  {invitations.filter(inv => inv.status === 'published' && inv.is_published).length}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Ready to share
@@ -135,15 +192,15 @@ function DashboardPage() {
             
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Archived</CardTitle>
-                <Share2 className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Total Views</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {invitations.filter(inv => inv.status === 'archived').length}
+                  {invitations.reduce((total, inv) => total + (inv.unique_visitors || 0), 0)}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Completed events
+                  Unique visitors
                 </p>
               </CardContent>
             </Card>
@@ -190,58 +247,114 @@ function DashboardPage() {
               ) : (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {filteredInvitations.map((invitation) => (
-                    <Card key={invitation.id} className="hover:shadow-md transition-shadow cursor-pointer">
-                      <CardHeader>
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-sm font-medium truncate">
-                            {invitation.title}
-                          </CardTitle>
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            invitation.status === 'draft' 
-                              ? 'bg-gray-100 text-gray-800'
-                              : invitation.status === 'published'
-                              ? 'bg-blue-100 text-blue-800'
-                              : 'bg-green-100 text-green-800'
-                          }`}>
-                            {invitation.status}
-                          </span>
+                    <Card key={invitation.id} className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-blue-500">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <CardTitle className="text-lg font-semibold truncate text-gray-900">
+                              {invitation.title}
+                            </CardTitle>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(invitation.status, invitation.is_published)}`}>
+                                {invitation.is_published ? 'Published' : 'Draft'}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </CardHeader>
-                      <CardContent>
-                        <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                          {invitation.form_data?.invitation_message || 'No description'}
+                      <CardContent className="pt-0">
+                        <p className="text-sm text-gray-600 mb-4 line-clamp-2 min-h-[2.5rem]">
+                          {invitation.description || 'No description provided'}
                         </p>
                         
-                        {invitation.event_date && (
-                          <div className="flex items-center text-xs text-gray-500 mb-2">
-                            <Calendar className="w-3 h-3 mr-1" />
-                            {new Date(invitation.event_date).toLocaleDateString()}
-                          </div>
-                        )}
+                        {/* Event Details */}
+                        <div className="space-y-2 mb-4">
+                          {invitation.event_date && (
+                            <div className="flex items-center text-sm text-gray-500">
+                              <Calendar className="w-4 h-4 mr-2 text-blue-500" />
+                              {new Date(invitation.event_date).toLocaleDateString('en-US', {
+                                weekday: 'short',
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                              })}
+                            </div>
+                          )}
+                          
+                          {invitation.location && (
+                            <div className="flex items-center text-sm text-gray-500">
+                              <span className="w-4 h-4 mr-2 text-center">📍</span>
+                              <span className="truncate">{invitation.location}</span>
+                            </div>
+                          )}
+                        </div>
                         
-                        {invitation.venue_name && (
-                          <div className="text-xs text-gray-500 mb-3 truncate">
-                            📍 {invitation.venue_name}
-                          </div>
-                        )}
-                        
-                        <div className="flex justify-between items-center">
-                          <div className="flex flex-col">
-                            <span className="text-xs text-gray-400">
-                              Created {new Date(invitation.created_at).toLocaleDateString()}
-                            </span>
-                            <span className="text-xs text-blue-500 capitalize">
-                              {invitation.package_type} package
-                            </span>
-                          </div>
-                          <div className="flex space-x-1">
-                            <Button size="sm" variant="outline">
+                        {/* Analytics */}
+                        <div className="flex items-center justify-between text-sm text-gray-500 mb-4 p-2 bg-gray-50 rounded-lg">
+                          <div className="flex items-center gap-4">
+                            <span className="flex items-center gap-1">
                               <Eye className="w-3 h-3" />
-                            </Button>
-                            <Button size="sm" variant="outline">
-                              <Share2 className="w-3 h-3" />
-                            </Button>
+                              {invitation.views_count || 0}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Users className="w-3 h-3" />
+                              {invitation.unique_visitors}
+                            </span>
                           </div>
+                          <span className="text-xs">
+                            {new Date(invitation.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                        
+                        {/* Publish Toggle */}
+                        <div className="flex items-center justify-between mb-4 p-3 bg-blue-50 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <Globe className="w-4 h-4 text-blue-600" />
+                            <div>
+                              <span className="text-sm font-medium text-blue-900 block">
+                                {invitation.is_published ? 'Published' : 'Publish'}
+                              </span>
+                              <span className="text-xs text-blue-700">
+                                {invitation.is_published ? 'Publicly accessible' : 'Make publicly accessible'}
+                              </span>
+                            </div>
+                          </div>
+                          <Switch
+                            checked={invitation.is_published}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                handlePublishInvitation(invitation.id)
+                              } else {
+                                handleUnpublishInvitation(invitation.id)
+                              }
+                            }}
+                            disabled={actionLoading === invitation.id}
+                          />
+                        </div>
+                        
+                        {/* Action Buttons */}
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleEditInvitation(invitation.id)}
+                            className="flex-1"
+                          >
+                            <Edit className="w-4 h-4 mr-1" />
+                            Edit
+                          </Button>
+                          
+                          {/* Preview button - always available for private preview */}
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => openInvitationPreview(invitation.public_slug || invitation.id)}
+                            className="flex-1 text-blue-600 border-blue-300 hover:bg-blue-50"
+                            disabled={!invitation.public_slug && !invitation.id}
+                          >
+                            <ExternalLink className="w-4 h-4 mr-1" />
+                            {invitation.is_published ? 'Preview' : 'Preview Draft'}
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>

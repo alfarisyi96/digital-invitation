@@ -4,7 +4,9 @@ export interface UserProfile {
   id: string
   email: string
   full_name: string | null
-  avatar_url: string | null
+  phone: string | null
+  is_active: boolean
+  reseller_id: string | null
   created_at: string
   updated_at: string
 }
@@ -13,51 +15,26 @@ export interface Invitation {
   id: string
   user_id: string
   title: string
-  type: InvitationType
-  status: InvitationStatus
-  
-  // Dynamic form data (JSON structure varies by type)
-  form_data: Record<string, any>
-  
-  // Common extracted fields for easier querying
-  event_date: string | null
-  venue_name: string | null
-  venue_address: string | null
-  
-  // Template and package information
+  description?: string
   template_id: string | null
-  template_customization: Record<string, any> | null
-  package_type: PackageType
-  
-  // Publishing and sharing
-  slug: string | null
+  category_id: string | null
+  event_date: string | null
+  location?: string
+  custom_data?: Record<string, any>
+  status: 'draft' | 'sent' | 'viewed' | 'confirmed' | 'published' | 'unpublished'
+  views_count?: number
+  public_slug: string | null
+  unique_visitors: number
   is_published: boolean
-  published_at: string | null
-  expires_at: string | null
-  
-  // Settings
-  rsvp_enabled: boolean
-  rsvp_deadline: string | null
-  guest_can_invite_others: boolean
   require_approval: boolean
-  
-  // Analytics
-  view_count: number
-  unique_view_count: number
   rsvp_count: number
   confirmed_count: number
-  
-  // SEO and sharing
-  meta_title: string | null
-  meta_description: string | null
-  og_image_url: string | null
-  
   created_at: string
   updated_at: string
 }
 
 export type InvitationType = 'wedding' | 'birthday' | 'graduation' | 'baby_shower' | 'business' | 'anniversary' | 'party'
-export type InvitationStatus = 'draft' | 'published' | 'archived' | 'expired'
+export type InvitationStatus = 'draft' | 'published' | 'unpublished'
 export type PackageType = 'basic' | 'gold'
 
 export interface InvitationGuest {
@@ -76,26 +53,10 @@ export interface Template {
   name: string
   description: string | null
   thumbnail_url: string | null
-  preview_url: string | null
-  
-  // Template categorization
-  category: InvitationType
-  style: TemplateStyle
-  
-  // Template data and configuration
   template_data: Record<string, any>
-  default_config: Record<string, any> | null
-  supported_fields: string[] | null
-  
-  // Pricing and availability
+  category: string | null
   is_premium: boolean
-  package_type: PackageType
-  price: number
-  
-  // Popularity and metrics
-  popularity_score: number
-  usage_count: number
-  
+  is_active: boolean
   created_at: string
   updated_at: string
 }
@@ -167,7 +128,7 @@ class SupabaseService {
   // User Profile Methods
   async getUserProfile(): Promise<UserProfile | null> {
     const { data, error } = await this.supabase
-      .from('user_profiles')
+      .from('users')
       .select('*')
       .single()
 
@@ -181,7 +142,7 @@ class SupabaseService {
 
   async updateUserProfile(updates: Partial<UserProfile>): Promise<UserProfile | null> {
     const { data, error } = await this.supabase
-      .from('user_profiles')
+      .from('users')
       .update(updates)
       .select()
       .single()
@@ -197,7 +158,7 @@ class SupabaseService {
   // Invitation Methods (RLS automatically filters to user's data)
   async getUserInvitations(): Promise<Invitation[]> {
     const { data, error } = await this.supabase
-      .from('invitations')
+      .from('invites')
       .select('*')
       .order('created_at', { ascending: false })
 
@@ -222,25 +183,39 @@ class SupabaseService {
       return null
     }
 
+    // Generate unique slug using database function
+    const slugResult = await this.supabase
+      .rpc('generate_unique_slug', { base_title: invitation.title })
+    
+    if (slugResult.error) {
+      console.error('Error generating unique slug:', slugResult.error)
+      return null
+    }
+
+    // Extract invitation details from form_data
+    const formData = invitation.form_data || {}
+    
     const invitationData = {
-      user_id: user.id,
       title: invitation.title,
-      type: invitation.type,
-      form_data: invitation.form_data || {},
-      package_type: invitation.package_type || 'basic',
-      status: 'draft' as InvitationStatus,
-      rsvp_enabled: false,
-      guest_can_invite_others: false,
+      description: formData.description || '',
+      template_id: formData.template_id || null,
+      category_id: formData.category_id || null,
+      user_id: user.id,
+      event_date: formData.event_date ? new Date(formData.event_date).toISOString() : null,
+      location: formData.location || '',
+      custom_data: formData,
+      status: 'draft' as const,
+      public_slug: slugResult.data,
+      unique_visitors: 0,
       require_approval: false,
-      view_count: 0,
-      unique_view_count: 0,
+      views_count: 0,
       rsvp_count: 0,
       confirmed_count: 0,
       is_published: false
     }
 
     const { data, error } = await this.supabase
-      .from('invitations')
+      .from('invites')
       .insert(invitationData)
       .select()
       .single()
@@ -255,7 +230,7 @@ class SupabaseService {
 
   async updateInvitation(id: string, updates: Partial<Invitation>): Promise<Invitation | null> {
     const { data, error } = await this.supabase
-      .from('invitations')
+      .from('invites')
       .update({
         ...updates,
         updated_at: new Date().toISOString()
@@ -272,9 +247,102 @@ class SupabaseService {
     return data
   }
 
+  // New Invitation Management Methods
+  async publishInvitation(id: string): Promise<Invitation | null> {
+    const { data, error } = await this.supabase
+      .from('invites')
+      .update({
+        status: 'published',
+        is_published: true,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error publishing invitation:', error)
+      return null
+    }
+
+    return data
+  }
+
+  async unpublishInvitation(id: string): Promise<Invitation | null> {
+    const { data, error } = await this.supabase
+      .from('invites')
+      .update({
+        status: 'unpublished',
+        is_published: false,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error unpublishing invitation:', error)
+      return null
+    }
+
+    return data
+  }
+
+  async getInvitationBySlug(slug: string): Promise<Invitation | null> {
+    const { data, error } = await this.supabase
+      .from('invites')
+      .select('*')
+      .eq('public_slug', slug)
+      .eq('is_published', true)
+      .single()
+
+    if (error) {
+      console.error('Error fetching invitation by slug:', error)
+      return null
+    }
+
+    return data
+  }
+
+  async incrementInvitationVisitor(slug: string, visitorId: string): Promise<boolean> {
+    try {
+      // Call the database function to handle visitor tracking
+      const { error } = await this.supabase
+        .rpc('track_invitation_visitor', {
+          invitation_slug: slug,
+          visitor_id: visitorId
+        })
+
+      if (error) {
+        console.error('Error tracking visitor:', error)
+        return false
+      }
+
+      return true
+    } catch (error) {
+      console.error('Error incrementing visitor:', error)
+      return false
+    }
+  }
+
+  async getInvitationAnalytics(id: string): Promise<{ unique_visitors: number } | null> {
+    const { data, error } = await this.supabase
+      .from('invites')
+      .select('unique_visitors')
+      .eq('id', id)
+      .single()
+
+    if (error) {
+      console.error('Error fetching invitation analytics:', error)
+      return null
+    }
+
+    return { unique_visitors: data.unique_visitors || 0 }
+  }
+
   async deleteInvitation(id: string): Promise<boolean> {
     const { error } = await this.supabase
-      .from('invitations')
+      .from('invites')
       .delete()
       .eq('id', id)
 
@@ -484,14 +552,19 @@ class SupabaseService {
     let query = this.supabase
       .from('templates')
       .select('*')
-      .order('popularity_score', { ascending: false })
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
 
     if (category) {
       query = query.eq('category', category)
     }
 
-    if (packageType) {
-      query = query.eq('package_type', packageType)
+    // Note: package_type filtering removed since it doesn't exist in database
+    // Will use is_premium instead
+    if (packageType === 'basic') {
+      query = query.eq('is_premium', false)
+    } else if (packageType === 'gold') {
+      query = query.eq('is_premium', true)
     }
 
     const { data, error } = await query
@@ -517,16 +590,6 @@ class SupabaseService {
     }
 
     return data
-  }
-
-  // Utility Methods
-  hasFeature(invitation: Invitation, feature: string): boolean {
-    const features = PACKAGE_FEATURES[invitation.package_type] || []
-    return features.includes(feature as any)
-  }
-
-  async upgradeInvitationPackage(id: string, newPackage: PackageType): Promise<Invitation | null> {
-    return this.updateInvitation(id, { package_type: newPackage })
   }
 }
 
