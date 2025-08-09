@@ -2,12 +2,17 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { useInvitations } from '@/hooks/useInvitations'
-import { InvitationType, Plan } from '@/types'
+import { Textarea } from '@/components/ui/textarea'
+import { useUserInvitations, usePublicTemplates } from '@/hooks/useSupabaseData'
+import { InvitationType, PackageType, WeddingFormData } from '@/services/supabaseService'
+import { withAuth } from '@/contexts/SupabaseUserContext'
 import { 
   ArrowLeft, 
   Heart, 
@@ -16,397 +21,469 @@ import {
   Baby, 
   Briefcase, 
   Calendar,
-  Check,
-  Star,
-  Crown,
-  Zap
+  Users
 } from 'lucide-react'
 
-// Mock plans data
-const plans: Plan[] = [
-  {
-    id: 'free',
-    name: 'Free',
-    price: 0,
-    features: [
-      '1 invitation',
-      'Basic templates',
-      'Up to 50 guests',
-      'Standard analytics'
-    ],
-    limits: {
-      maxInvitations: 1,
-      maxGuests: 50,
-      customization: false,
-      analytics: false,
-      customDomain: false
-    }
-  },
-  {
-    id: 'premium',
-    name: 'Premium',
-    price: 9.99,
-    features: [
-      'Unlimited invitations',
-      'Premium templates',
-      'Unlimited guests',
-      'Advanced customization',
-      'Detailed analytics',
-      'Custom domain'
-    ],
-    limits: {
-      maxInvitations: -1,
-      maxGuests: -1,
-      customization: true,
-      analytics: true,
-      customDomain: true
-    },
-    isPopular: true
-  },
-  {
-    id: 'business',
-    name: 'Business',
-    price: 19.99,
-    features: [
-      'Everything in Premium',
-      'White label solution',
-      'Priority support',
-      'API access',
-      'Team collaboration'
-    ],
-    limits: {
-      maxInvitations: -1,
-      maxGuests: -1,
-      customization: true,
-      analytics: true,
-      customDomain: true
-    }
-  }
-]
+// Wedding form validation schema
+const weddingFormSchema = z.object({
+  title: z.string().min(1, 'Title is required'),
+  bride_full_name: z.string().min(1, 'Bride name is required'),
+  bride_nickname: z.string().optional(),
+  groom_full_name: z.string().min(1, 'Groom name is required'),
+  groom_nickname: z.string().optional(),
+  wedding_date: z.string().min(1, 'Wedding date is required'),
+  ceremony_time: z.string().optional(),
+  reception_time: z.string().optional(),
+  venue_name: z.string().min(1, 'Venue name is required'),
+  venue_address: z.string().optional(),
+  invitation_message: z.string().optional(),
+  bride_father: z.string().optional(),
+  bride_mother: z.string().optional(),
+  groom_father: z.string().optional(),
+  groom_mother: z.string().optional(),
+})
 
-const invitationTypes = [
+type WeddingFormValues = z.infer<typeof weddingFormSchema>
+
+// Category definitions
+const categories = [
   {
-    type: InvitationType.WEDDING,
-    title: 'Wedding',
-    description: 'Celebrate your special day',
+    id: 'wedding' as InvitationType,
+    name: 'Wedding',
     icon: Heart,
-    color: 'from-rose-500 to-pink-500',
-    bgColor: 'bg-rose-50'
+    description: 'Wedding invitations and ceremonies',
+    color: 'bg-rose-50 text-rose-600 border-rose-200'
   },
   {
-    type: InvitationType.BIRTHDAY,
-    title: 'Birthday',
-    description: 'Make birthdays memorable',
+    id: 'birthday' as InvitationType,
+    name: 'Birthday',
     icon: Cake,
-    color: 'from-yellow-500 to-orange-500',
-    bgColor: 'bg-yellow-50'
+    description: 'Birthday party invitations',
+    color: 'bg-yellow-50 text-yellow-600 border-yellow-200'
   },
   {
-    type: InvitationType.GRADUATION,
-    title: 'Graduation',
-    description: 'Celebrate achievements',
+    id: 'graduation' as InvitationType,
+    name: 'Graduation',
     icon: GraduationCap,
-    color: 'from-blue-500 to-indigo-500',
-    bgColor: 'bg-blue-50'
+    description: 'Graduation ceremony invitations',
+    color: 'bg-blue-50 text-blue-600 border-blue-200'
   },
   {
-    type: InvitationType.BABY_SHOWER,
-    title: 'Baby Shower',
-    description: 'Welcome new arrivals',
+    id: 'baby_shower' as InvitationType,
+    name: 'Baby Shower',
     icon: Baby,
-    color: 'from-green-500 to-emerald-500',
-    bgColor: 'bg-green-50'
+    description: 'Baby shower invitations',
+    color: 'bg-pink-50 text-pink-600 border-pink-200'
   },
   {
-    type: InvitationType.BUSINESS,
-    title: 'Business Event',
-    description: 'Professional gatherings',
+    id: 'business' as InvitationType,
+    name: 'Business',
     icon: Briefcase,
-    color: 'from-gray-500 to-slate-500',
-    bgColor: 'bg-gray-50'
-  },
-  {
-    type: InvitationType.OTHER,
-    title: 'Other',
-    description: 'Custom celebrations',
-    icon: Calendar,
-    color: 'from-purple-500 to-violet-500',
-    bgColor: 'bg-purple-50'
+    description: 'Corporate and business events',
+    color: 'bg-gray-50 text-gray-600 border-gray-200'
   }
 ]
 
-export default function CreateInvitationPage() {
-  const [step, setStep] = useState(1)
-  const [title, setTitle] = useState('')
-  const [selectedType, setSelectedType] = useState<InvitationType | null>(null)
-  const [selectedPlan, setSelectedPlan] = useState<string | null>(null)
-  const [isCreating, setIsCreating] = useState(false)
+function CreateInvitationPage() {
   const router = useRouter()
-  const { createInvitation } = useInvitations()
+  const { createInvitation } = useUserInvitations()
+  const [currentStep, setCurrentStep] = useState(1)
+  const [selectedCategory, setSelectedCategory] = useState<InvitationType | null>(null)
+  const [selectedPackage, setSelectedPackage] = useState<PackageType>('basic')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleNext = () => {
-    if (step < 3) setStep(step + 1)
-  }
+  const { templates, loading: templatesLoading } = usePublicTemplates(selectedCategory || undefined, selectedPackage)
+
+  const form = useForm<WeddingFormValues>({
+    resolver: zodResolver(weddingFormSchema),
+    defaultValues: {
+      title: '',
+      bride_full_name: '',
+      bride_nickname: '',
+      groom_full_name: '',
+      groom_nickname: '',
+      wedding_date: '',
+      ceremony_time: '',
+      reception_time: '',
+      venue_name: '',
+      venue_address: '',
+      invitation_message: '',
+      bride_father: '',
+      bride_mother: '',
+      groom_father: '',
+      groom_mother: '',
+    }
+  })
 
   const handleBack = () => {
-    if (step > 1) setStep(step - 1)
-    else router.back()
-  }
-
-  const handleCreate = async () => {
-    if (!title || !selectedType) return
-    
-    setIsCreating(true)
-    try {
-      const invitation = await createInvitation({
-        title,
-        type: selectedType,
-        planId: selectedPlan || undefined
-      })
-      router.push(`/create/${invitation.id}/details`)
-    } catch (error) {
-      console.error('Failed to create invitation:', error)
-    } finally {
-      setIsCreating(false)
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1)
+    } else {
+      router.push('/dashboard')
     }
   }
 
-  const canProceed = () => {
-    switch (step) {
-      case 1: return title.trim().length > 0
-      case 2: return selectedType !== null
-      case 3: return selectedPlan !== null
-      default: return false
+  const handleNext = () => {
+    if (currentStep === 1 && selectedCategory) {
+      setCurrentStep(2)
+    } else if (currentStep === 2 && selectedCategory === 'wedding') {
+      form.handleSubmit(onSubmit)()
+    }
+  }
+
+  const onSubmit = async (data: WeddingFormValues) => {
+    if (!selectedCategory) return
+
+    setIsSubmitting(true)
+    
+    try {
+      const formData: WeddingFormData = {
+        bride_full_name: data.bride_full_name,
+        bride_nickname: data.bride_nickname,
+        groom_full_name: data.groom_full_name,
+        groom_nickname: data.groom_nickname,
+        wedding_date: data.wedding_date,
+        ceremony_time: data.ceremony_time,
+        reception_time: data.reception_time,
+        venue_name: data.venue_name,
+        venue_address: data.venue_address,
+        invitation_message: data.invitation_message,
+        bride_father: data.bride_father,
+        bride_mother: data.bride_mother,
+        groom_father: data.groom_father,
+        groom_mother: data.groom_mother,
+      }
+
+      const invitation = await createInvitation({
+        title: data.title,
+        type: selectedCategory,
+        form_data: formData,
+        package_type: selectedPackage
+      })
+
+      if (invitation) {
+        router.push(`/dashboard`)
+      }
+    } catch (error) {
+      console.error('Error creating invitation:', error)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 1:
+        return (
+          <div className="space-y-6">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Choose Your Event Category</h2>
+              <p className="text-gray-600">Select the type of invitation you want to create</p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {categories.map((category) => {
+                const Icon = category.icon
+                return (
+                  <Card 
+                    key={category.id}
+                    className={`cursor-pointer transition-all hover:shadow-lg ${
+                      selectedCategory === category.id 
+                        ? 'ring-2 ring-blue-500 border-blue-500' 
+                        : 'hover:border-gray-300'
+                    }`}
+                    onClick={() => setSelectedCategory(category.id)}
+                  >
+                    <CardContent className="p-6 text-center">
+                      <div className={`w-12 h-12 rounded-full ${category.color} flex items-center justify-center mx-auto mb-4`}>
+                        <Icon className="w-6 h-6" />
+                      </div>
+                      <h3 className="font-semibold text-gray-900 mb-2">{category.name}</h3>
+                      <p className="text-sm text-gray-600">{category.description}</p>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          </div>
+        )
+
+      case 2:
+        if (selectedCategory === 'wedding') {
+          return (
+            <div className="space-y-6">
+              <div className="text-center">
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Wedding Details</h2>
+                <p className="text-gray-600">Tell us about your special day</p>
+              </div>
+
+              <form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
+                {/* Basic Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <Heart className="w-5 h-5 mr-2 text-rose-500" />
+                      Basic Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label htmlFor="title">Invitation Title</Label>
+                      <Input 
+                        id="title"
+                        placeholder="e.g., Sarah & John Wedding"
+                        {...form.register('title')}
+                      />
+                      {form.formState.errors.title && (
+                        <p className="text-sm text-red-600 mt-1">{form.formState.errors.title.message}</p>
+                      )}
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="bride_full_name">Bride Full Name</Label>
+                        <Input 
+                          id="bride_full_name"
+                          placeholder="e.g., Sarah Elizabeth Johnson"
+                          {...form.register('bride_full_name')}
+                        />
+                        {form.formState.errors.bride_full_name && (
+                          <p className="text-sm text-red-600 mt-1">{form.formState.errors.bride_full_name.message}</p>
+                        )}
+                      </div>
+                      <div>
+                        <Label htmlFor="bride_nickname">Bride Nickname (Optional)</Label>
+                        <Input 
+                          id="bride_nickname"
+                          placeholder="e.g., Sarah"
+                          {...form.register('bride_nickname')}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="groom_full_name">Groom Full Name</Label>
+                        <Input 
+                          id="groom_full_name"
+                          placeholder="e.g., John Michael Smith"
+                          {...form.register('groom_full_name')}
+                        />
+                        {form.formState.errors.groom_full_name && (
+                          <p className="text-sm text-red-600 mt-1">{form.formState.errors.groom_full_name.message}</p>
+                        )}
+                      </div>
+                      <div>
+                        <Label htmlFor="groom_nickname">Groom Nickname (Optional)</Label>
+                        <Input 
+                          id="groom_nickname"
+                          placeholder="e.g., John"
+                          {...form.register('groom_nickname')}
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Event Details */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <Calendar className="w-5 h-5 mr-2 text-blue-500" />
+                      Event Details
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <Label htmlFor="wedding_date">Wedding Date</Label>
+                        <Input 
+                          id="wedding_date"
+                          type="date"
+                          {...form.register('wedding_date')}
+                        />
+                        {form.formState.errors.wedding_date && (
+                          <p className="text-sm text-red-600 mt-1">{form.formState.errors.wedding_date.message}</p>
+                        )}
+                      </div>
+                      <div>
+                        <Label htmlFor="ceremony_time">Ceremony Time (Optional)</Label>
+                        <Input 
+                          id="ceremony_time"
+                          type="time"
+                          {...form.register('ceremony_time')}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="reception_time">Reception Time (Optional)</Label>
+                        <Input 
+                          id="reception_time"
+                          type="time"
+                          {...form.register('reception_time')}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="venue_name">Venue Name</Label>
+                      <Input 
+                        id="venue_name"
+                        placeholder="e.g., Grand Ballroom Hotel"
+                        {...form.register('venue_name')}
+                      />
+                      {form.formState.errors.venue_name && (
+                        <p className="text-sm text-red-600 mt-1">{form.formState.errors.venue_name.message}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label htmlFor="venue_address">Venue Address (Optional)</Label>
+                      <Input 
+                        id="venue_address"
+                        placeholder="e.g., 123 Main Street, City, State"
+                        {...form.register('venue_address')}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Family Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <Users className="w-5 h-5 mr-2 text-purple-500" />
+                      Family Information (Optional)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="bride_father">Bride's Father</Label>
+                        <Input 
+                          id="bride_father"
+                          placeholder="e.g., Mr. Robert Johnson"
+                          {...form.register('bride_father')}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="bride_mother">Bride's Mother</Label>
+                        <Input 
+                          id="bride_mother"
+                          placeholder="e.g., Mrs. Mary Johnson"
+                          {...form.register('bride_mother')}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="groom_father">Groom's Father</Label>
+                        <Input 
+                          id="groom_father"
+                          placeholder="e.g., Mr. David Smith"
+                          {...form.register('groom_father')}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="groom_mother">Groom's Mother</Label>
+                        <Input 
+                          id="groom_mother"
+                          placeholder="e.g., Mrs. Lisa Smith"
+                          {...form.register('groom_mother')}
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Personal Message */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <Heart className="w-5 h-5 mr-2 text-red-500" />
+                      Personal Message (Optional)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div>
+                      <Label htmlFor="invitation_message">Invitation Message</Label>
+                      <Textarea 
+                        id="invitation_message"
+                        placeholder="Write a personal message for your guests..."
+                        rows={4}
+                        {...form.register('invitation_message')}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </form>
+            </div>
+          )
+        }
+        break
+
+      default:
+        return null
     }
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div className="px-4 py-4">
-          <div className="flex items-center justify-between">
-            <button 
-              onClick={handleBack}
-              className="p-2 hover:bg-gray-100 rounded-full"
-            >
-              <ArrowLeft className="w-5 h-5 text-gray-600" />
-            </button>
-            <h1 className="text-lg font-semibold text-gray-900">
-              Create Invitation
-            </h1>
-            <div className="w-9 h-9" /> {/* Spacer */}
-          </div>
-        </div>
-      </header>
-
-      {/* Progress Indicator */}
-      <div className="px-4 py-4 bg-white border-b border-gray-100">
-        <div className="flex items-center justify-between">
-          {[1, 2, 3].map((stepNumber) => (
-            <div key={stepNumber} className="flex items-center">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                stepNumber === step 
-                  ? 'bg-rose-500 text-white' 
-                  : stepNumber < step 
-                    ? 'bg-green-500 text-white'
-                    : 'bg-gray-200 text-gray-500'
-              }`}>
-                {stepNumber < step ? <Check className="w-4 h-4" /> : stepNumber}
-              </div>
-              {stepNumber < 3 && (
-                <div className={`w-16 h-1 mx-2 ${
-                  stepNumber < step ? 'bg-green-500' : 'bg-gray-200'
-                }`} />
-              )}
-            </div>
-          ))}
-        </div>
-        <div className="mt-2 text-center">
-          <p className="text-sm text-gray-600">
-            Step {step} of 3: {
-              step === 1 ? 'Basic Info' : 
-              step === 2 ? 'Event Type' : 
-              'Choose Plan'
-            }
-          </p>
-        </div>
-      </div>
-
-      <div className="px-4 py-6">
-        {/* Step 1: Basic Information */}
-        {step === 1 && (
-          <div className="space-y-6">
-            <div className="text-center space-y-2">
-              <h2 className="text-2xl font-bold text-gray-900">What's your event?</h2>
-              <p className="text-gray-600">Give your invitation a memorable title</p>
-            </div>
-
-            <Card className="border-0 shadow-sm">
-              <CardContent className="p-6 space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="title">Event Title</Label>
-                  <Input
-                    id="title"
-                    type="text"
-                    placeholder="e.g., Sarah & John's Wedding"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    className="h-12 text-base"
-                    autoFocus
-                  />
-                  <p className="text-sm text-gray-500">
-                    This will be displayed prominently on your invitation
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">Quick Examples:</h3>
-              <div className="grid grid-cols-1 gap-3">
-                {[
-                  "Sarah & John's Wedding",
-                  "Emma's 25th Birthday Bash",
-                  "Baby Shower for Alex",
-                  "Annual Company Retreat"
-                ].map((example) => (
-                  <button
-                    key={example}
-                    onClick={() => setTitle(example)}
-                    className="p-3 text-left bg-white border border-gray-200 rounded-lg hover:border-rose-300 hover:bg-rose-50 transition-colors"
-                  >
-                    <span className="text-gray-700">{example}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Step 2: Event Type */}
-        {step === 2 && (
-          <div className="space-y-6">
-            <div className="text-center space-y-2">
-              <h2 className="text-2xl font-bold text-gray-900">What type of event?</h2>
-              <p className="text-gray-600">Choose the category that best fits your celebration</p>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4">
-              {invitationTypes.map((type) => {
-                const Icon = type.icon
-                const isSelected = selectedType === type.type
-                
-                return (
-                  <button
-                    key={type.type}
-                    onClick={() => setSelectedType(type.type)}
-                    className={`p-4 rounded-lg border-2 transition-all ${
-                      isSelected 
-                        ? 'border-rose-500 bg-rose-50' 
-                        : 'border-gray-200 bg-white hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center bg-gradient-to-r ${type.color}`}>
-                        <Icon className="w-6 h-6 text-white" />
-                      </div>
-                      <div className="flex-1 text-left">
-                        <h3 className="font-semibold text-gray-900">{type.title}</h3>
-                        <p className="text-sm text-gray-600">{type.description}</p>
-                      </div>
-                      {isSelected && (
-                        <Check className="w-5 h-5 text-rose-500" />
-                      )}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Step 3: Choose Plan */}
-        {step === 3 && (
-          <div className="space-y-6">
-            <div className="text-center space-y-2">
-              <h2 className="text-2xl font-bold text-gray-900">Choose your plan</h2>
-              <p className="text-gray-600">Select the features that work best for your event</p>
-            </div>
-
-            <div className="space-y-4">
-              {plans.map((plan) => {
-                const isSelected = selectedPlan === plan.id
-                
-                return (
-                  <button
-                    key={plan.id}
-                    onClick={() => setSelectedPlan(plan.id)}
-                    className={`w-full p-6 rounded-lg border-2 transition-all text-left ${
-                      isSelected 
-                        ? 'border-rose-500 bg-rose-50' 
-                        : 'border-gray-200 bg-white hover:border-gray-300'
-                    } ${plan.isPopular ? 'relative' : ''}`}
-                  >
-                    {plan.isPopular && (
-                      <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                        <span className="bg-gradient-to-r from-rose-500 to-pink-500 text-white text-xs font-medium px-3 py-1 rounded-full flex items-center space-x-1">
-                          <Crown className="w-3 h-3" />
-                          <span>Most Popular</span>
-                        </span>
-                      </div>
-                    )}
-                    
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <div className="flex items-center space-x-2">
-                          <h3 className="text-xl font-bold text-gray-900">{plan.name}</h3>
-                          {plan.id === 'premium' && <Star className="w-5 h-5 text-yellow-500" />}
-                          {plan.id === 'business' && <Zap className="w-5 h-5 text-blue-500" />}
-                        </div>
-                        <div className="mt-1">
-                          <span className="text-3xl font-bold text-gray-900">
-                            ${plan.price}
-                          </span>
-                          {plan.price > 0 && <span className="text-gray-500">/month</span>}
-                        </div>
-                      </div>
-                      {isSelected && (
-                        <Check className="w-6 h-6 text-rose-500" />
-                      )}
-                    </div>
-
-                    <ul className="space-y-2">
-                      {plan.features.map((feature, index) => (
-                        <li key={index} className="flex items-center space-x-2 text-sm">
-                          <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
-                          <span className="text-gray-700">{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Continue Button */}
-        <div className="mt-8 pb-20">
-          <Button
-            onClick={step === 3 ? handleCreate : handleNext}
-            disabled={!canProceed() || isCreating}
-            className="w-full h-12 text-base font-medium bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 disabled:opacity-50"
-          >
-            {isCreating 
-              ? 'Creating...' 
-              : step === 3 
-                ? 'Create Invitation' 
-                : 'Continue'
-            }
+      <div className="max-w-4xl mx-auto py-8 px-4">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <Button variant="ghost" onClick={handleBack} className="flex items-center">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
           </Button>
+          
+          <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <span className={`px-2 py-1 rounded ${currentStep >= 1 ? 'bg-blue-100 text-blue-600' : 'bg-gray-100'}`}>
+              1. Category
+            </span>
+            <span>→</span>
+            <span className={`px-2 py-1 rounded ${currentStep >= 2 ? 'bg-blue-100 text-blue-600' : 'bg-gray-100'}`}>
+              2. Details
+            </span>
+            <span>→</span>
+            <span className={`px-2 py-1 rounded ${currentStep >= 3 ? 'bg-blue-100 text-blue-600' : 'bg-gray-100'}`}>
+              3. Templates
+            </span>
+          </div>
+        </div>
+
+        {/* Step Content */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+          {renderStepContent()}
+        </div>
+
+        {/* Actions */}
+        <div className="flex justify-between">
+          <div />
+          <div className="space-x-4">
+            {currentStep === 1 && (
+              <Button 
+                onClick={handleNext}
+                disabled={!selectedCategory}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                Continue
+              </Button>
+            )}
+            {currentStep === 2 && selectedCategory === 'wedding' && (
+              <Button 
+                onClick={handleNext}
+                disabled={isSubmitting}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {isSubmitting ? 'Creating...' : 'Create Invitation'}
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>
   )
 }
+
+export default withAuth(CreateInvitationPage)

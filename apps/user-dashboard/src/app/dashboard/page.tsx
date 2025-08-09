@@ -19,27 +19,19 @@ import {
 
 function DashboardPage() {
   const { user } = useUser()
-  const { invitations, loading: invitationsLoading, createInvitation } = useUserInvitations()
+  const router = useRouter()
+  const { invitations, loading: invitationsLoading } = useUserInvitations()
   const { profile, loading: profileLoading } = useUserProfile()
   const [searchQuery, setSearchQuery] = useState('')
 
   // Filter invitations based on search query (client-side filtering of RLS-filtered data)
   const filteredInvitations = invitations.filter(invitation =>
     invitation.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    invitation.description?.toLowerCase().includes(searchQuery.toLowerCase())
+    (invitation.form_data?.invitation_message?.toLowerCase().includes(searchQuery.toLowerCase()))
   )
 
-  const handleCreateInvitation = async () => {
-    const newInvitation = {
-      title: 'New Invitation',
-      description: 'Click to edit this invitation',
-      event_date: null,
-      event_location: null,
-      template_id: null,
-      status: 'draft' as const
-    }
-
-    await createInvitation(newInvitation)
+  const handleCreateInvitation = () => {
+    router.push('/create')
   }
 
   if (profileLoading || invitationsLoading) {
@@ -143,15 +135,15 @@ function DashboardPage() {
             
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Sent</CardTitle>
+                <CardTitle className="text-sm font-medium">Archived</CardTitle>
                 <Share2 className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {invitations.filter(inv => inv.status === 'sent').length}
+                  {invitations.filter(inv => inv.status === 'archived').length}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Delivered to guests
+                  Completed events
                 </p>
               </CardContent>
             </Card>
@@ -217,7 +209,7 @@ function DashboardPage() {
                       </CardHeader>
                       <CardContent>
                         <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                          {invitation.description || 'No description'}
+                          {invitation.form_data?.invitation_message || 'No description'}
                         </p>
                         
                         {invitation.event_date && (
@@ -227,16 +219,21 @@ function DashboardPage() {
                           </div>
                         )}
                         
-                        {invitation.event_location && (
+                        {invitation.venue_name && (
                           <div className="text-xs text-gray-500 mb-3 truncate">
-                            📍 {invitation.event_location}
+                            📍 {invitation.venue_name}
                           </div>
                         )}
                         
                         <div className="flex justify-between items-center">
-                          <span className="text-xs text-gray-400">
-                            Created {new Date(invitation.created_at).toLocaleDateString()}
-                          </span>
+                          <div className="flex flex-col">
+                            <span className="text-xs text-gray-400">
+                              Created {new Date(invitation.created_at).toLocaleDateString()}
+                            </span>
+                            <span className="text-xs text-blue-500 capitalize">
+                              {invitation.package_type} package
+                            </span>
+                          </div>
                           <div className="flex space-x-1">
                             <Button size="sm" variant="outline">
                               <Eye className="w-3 h-3" />

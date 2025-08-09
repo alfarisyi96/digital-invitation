@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useUser } from '@/contexts/SupabaseUserContext'
-import { supabaseService, type Invitation, type InvitationGuest, type Template, type UserProfile } from '@/services/supabaseService'
+import { supabaseService, type Invitation, type InvitationGuest, type Template, type UserProfile, type InvitationType, type PackageType } from '@/services/supabaseService'
 
 // Hook for user profile with RLS
 export function useUserProfile() {
@@ -91,7 +91,12 @@ export function useUserInvitations() {
     }
   }
 
-  const createInvitation = async (invitation: Omit<Invitation, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
+  const createInvitation = async (invitation: {
+    title: string
+    type: InvitationType
+    form_data?: Record<string, any>
+    package_type?: PackageType
+  }) => {
     try {
       setError(null)
       const created = await supabaseService.createInvitation(invitation)
@@ -333,4 +338,60 @@ export function useTemplates() {
     deleteTemplate,
     refetch: fetchTemplates
   }
+}
+
+// Hook for public templates with filtering
+export function usePublicTemplates(category?: InvitationType, packageType?: PackageType) {
+  const [templates, setTemplates] = useState<Template[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchTemplates()
+  }, [category, packageType])
+
+  const fetchTemplates = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await supabaseService.getTemplates(category, packageType)
+      setTemplates(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch templates')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return { templates, loading, error, refetch: fetchTemplates }
+}
+
+// Hook for single template
+export function useTemplate(id?: string) {
+  const [template, setTemplate] = useState<Template | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (id) {
+      fetchTemplate()
+    }
+  }, [id])
+
+  const fetchTemplate = async () => {
+    if (!id) return
+
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await supabaseService.getTemplate(id)
+      setTemplate(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch template')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return { template, loading, error, refetch: fetchTemplate }
 }

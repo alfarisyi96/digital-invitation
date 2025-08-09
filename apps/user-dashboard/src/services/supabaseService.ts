@@ -13,14 +13,52 @@ export interface Invitation {
   id: string
   user_id: string
   title: string
-  description: string | null
+  type: InvitationType
+  status: InvitationStatus
+  
+  // Dynamic form data (JSON structure varies by type)
+  form_data: Record<string, any>
+  
+  // Common extracted fields for easier querying
   event_date: string | null
-  event_location: string | null
+  venue_name: string | null
+  venue_address: string | null
+  
+  // Template and package information
   template_id: string | null
-  status: 'draft' | 'published' | 'sent'
+  template_customization: Record<string, any> | null
+  package_type: PackageType
+  
+  // Publishing and sharing
+  slug: string | null
+  is_published: boolean
+  published_at: string | null
+  expires_at: string | null
+  
+  // Settings
+  rsvp_enabled: boolean
+  rsvp_deadline: string | null
+  guest_can_invite_others: boolean
+  require_approval: boolean
+  
+  // Analytics
+  view_count: number
+  unique_view_count: number
+  rsvp_count: number
+  confirmed_count: number
+  
+  // SEO and sharing
+  meta_title: string | null
+  meta_description: string | null
+  og_image_url: string | null
+  
   created_at: string
   updated_at: string
 }
+
+export type InvitationType = 'wedding' | 'birthday' | 'graduation' | 'baby_shower' | 'business' | 'anniversary' | 'party'
+export type InvitationStatus = 'draft' | 'published' | 'archived' | 'expired'
+export type PackageType = 'basic' | 'gold'
 
 export interface InvitationGuest {
   id: string
@@ -35,15 +73,93 @@ export interface InvitationGuest {
 
 export interface Template {
   id: string
-  user_id: string | null
   name: string
   description: string | null
-  category: string | null
-  template_data: any
-  is_public: boolean
+  thumbnail_url: string | null
+  preview_url: string | null
+  
+  // Template categorization
+  category: InvitationType
+  style: TemplateStyle
+  
+  // Template data and configuration
+  template_data: Record<string, any>
+  default_config: Record<string, any> | null
+  supported_fields: string[] | null
+  
+  // Pricing and availability
+  is_premium: boolean
+  package_type: PackageType
+  price: number
+  
+  // Popularity and metrics
+  popularity_score: number
+  usage_count: number
+  
   created_at: string
   updated_at: string
 }
+
+export type TemplateStyle = 'classic' | 'modern' | 'elegant' | 'floral' | 'minimalist' | 'rustic' | 'vintage' | 'tropical'
+
+// Wedding-specific form data structure
+export interface WeddingFormData {
+  // Essential couple info
+  bride_full_name: string
+  bride_nickname?: string
+  groom_full_name: string
+  groom_nickname?: string
+  
+  // Family info
+  bride_father?: string
+  bride_mother?: string
+  groom_father?: string
+  groom_mother?: string
+  
+  // Event details
+  wedding_date: string
+  ceremony_time?: string
+  reception_time?: string
+  venue_name: string
+  venue_address?: string
+  venue_hall?: string
+  google_maps_link?: string
+  
+  // Content
+  invitation_message?: string
+  opening_verse?: string
+  quranic_verse?: string
+  
+  // Social media
+  bride_instagram?: string
+  groom_instagram?: string
+  
+  // Love story (optional)
+  love_story?: Array<{
+    period: string
+    title: string
+    content: string
+  }>
+  
+  // Media
+  couple_photos?: string[]
+  gallery_photos?: string[]
+  
+  // Gift registry
+  gift_enabled?: boolean
+  gift_details?: string
+  bank_info?: {
+    bank_name: string
+    account_number: string
+    account_name: string
+  }
+}
+
+// Package feature definitions
+export const PACKAGE_FEATURES = {
+  basic: ['basic_display', 'simple_sharing', 'basic_customization'],
+  gold: ['basic_display', 'simple_sharing', 'basic_customization', 'rsvp_form', 'comment_system', 'gallery', 'custom_colors', 'love_story']
+} as const
 
 class SupabaseService {
   private supabase = createClient()
@@ -93,7 +209,12 @@ class SupabaseService {
     return data || []
   }
 
-  async createInvitation(invitation: Omit<Invitation, 'id' | 'user_id' | 'created_at' | 'updated_at'>): Promise<Invitation | null> {
+  async createInvitation(invitation: {
+    title: string
+    type: InvitationType
+    form_data?: Record<string, any>
+    package_type?: PackageType
+  }): Promise<Invitation | null> {
     const { data: { user } } = await this.supabase.auth.getUser()
     
     if (!user) {
@@ -101,12 +222,26 @@ class SupabaseService {
       return null
     }
 
+    const invitationData = {
+      user_id: user.id,
+      title: invitation.title,
+      type: invitation.type,
+      form_data: invitation.form_data || {},
+      package_type: invitation.package_type || 'basic',
+      status: 'draft' as InvitationStatus,
+      rsvp_enabled: false,
+      guest_can_invite_others: false,
+      require_approval: false,
+      view_count: 0,
+      unique_view_count: 0,
+      rsvp_count: 0,
+      confirmed_count: 0,
+      is_published: false
+    }
+
     const { data, error } = await this.supabase
       .from('invitations')
-      .insert({
-        ...invitation,
-        user_id: user.id
-      })
+      .insert(invitationData)
       .select()
       .single()
 
@@ -121,7 +256,10 @@ class SupabaseService {
   async updateInvitation(id: string, updates: Partial<Invitation>): Promise<Invitation | null> {
     const { data, error } = await this.supabase
       .from('invitations')
-      .update(updates)
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
       .eq('id', id)
       .select()
       .single()
@@ -339,6 +477,56 @@ class SupabaseService {
         callback
       )
       .subscribe()
+  }
+
+  // Template Methods
+  async getTemplates(category?: InvitationType, packageType?: PackageType): Promise<Template[]> {
+    let query = this.supabase
+      .from('templates')
+      .select('*')
+      .order('popularity_score', { ascending: false })
+
+    if (category) {
+      query = query.eq('category', category)
+    }
+
+    if (packageType) {
+      query = query.eq('package_type', packageType)
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      console.error('Error fetching templates:', error)
+      return []
+    }
+
+    return data || []
+  }
+
+  async getTemplate(id: string): Promise<Template | null> {
+    const { data, error } = await this.supabase
+      .from('templates')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (error) {
+      console.error('Error fetching template:', error)
+      return null
+    }
+
+    return data
+  }
+
+  // Utility Methods
+  hasFeature(invitation: Invitation, feature: string): boolean {
+    const features = PACKAGE_FEATURES[invitation.package_type] || []
+    return features.includes(feature as any)
+  }
+
+  async upgradeInvitationPackage(id: string, newPackage: PackageType): Promise<Invitation | null> {
+    return this.updateInvitation(id, { package_type: newPackage })
   }
 }
 
