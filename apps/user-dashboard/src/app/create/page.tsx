@@ -1,6 +1,6 @@
 'use client'
 
-import { CreateInvitationContainer } from '@/containers/create/CreateInvitationContainer.pure'
+import { CreateInvitationContainer } from '@/containers/create/CreateInvitationContainer'
 import { withAuth } from '@/contexts/SupabaseUserContext'
 
 function CreateInvitationPage() {

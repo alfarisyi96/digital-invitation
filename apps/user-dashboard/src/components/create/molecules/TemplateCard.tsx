@@ -33,7 +33,7 @@ export function TemplateCard({ template, isSelected, isLocked, onClick }: Templa
           }`} />
         </div>
         
-        <h4 className="text-sm sm:text-base font-medium text-gray-900 mb-1">
+        <h4 className="text-sm sm:text-base font-medium text-gray-900 mb-1 break-words hyphens-auto leading-tight">
           {template.name}
         </h4>
         

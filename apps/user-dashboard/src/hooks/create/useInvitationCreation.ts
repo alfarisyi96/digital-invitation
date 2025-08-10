@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useUserInvitations } from '@/hooks/useSupabaseData'
-import { InvitationType, PackageType, WeddingFormData } from '@/services/supabaseService'
+import { InvitationType, PackageType, WeddingFormData, supabaseService } from '@/services/supabaseService'
+import { edgeFunctionsService } from '@/services/edgeFunctionsService'
 
 export function useInvitationCreation() {
   const { createInvitation, updateInvitation } = useUserInvitations()
@@ -16,20 +17,55 @@ export function useInvitationCreation() {
   ) => {
     setIsSubmitting(true)
     try {
-      const invitation = await createInvitation({
+      // Use secure invitation creation through Edge Function
+      // The edge function handles both package validation and template access validation
+      const result = await supabaseService.createInvitationSecure({
         title: formData.bride_full_name && formData.groom_full_name 
           ? `${formData.bride_full_name} & ${formData.groom_full_name} Wedding`
           : 'Wedding Invitation',
         type: category,
-        form_data: formData,
-        package_type: packageType
+        template_id: templateId,
+        form_data: formData
       })
 
-      if (invitation && templateId) {
-        // Apply the selected template
-        await updateInvitation(invitation.id, {
-          template_id: templateId
-        })
+      if (!result.success) {
+        console.log('🚨 Invitation creation failed:', result)
+        
+        // Check for specific error types that should trigger upgrade flow
+        if (result.error === 'Package limit exceeded') {
+          console.log('📦 Creating PACKAGE_LIMIT_EXCEEDED error')
+          const packageLimitError = new Error(result.error)
+          // Add error type for UI to handle upgrade flow
+          ;(packageLimitError as any).type = 'PACKAGE_LIMIT_EXCEEDED'
+          ;(packageLimitError as any).details = result
+          throw packageLimitError
+        }
+        
+        if (result.error === 'Template not accessible with current package') {
+          console.log('🔒 Creating TEMPLATE_ACCESS_DENIED error')
+          const templateAccessError = new Error(result.error)
+          ;(templateAccessError as any).type = 'TEMPLATE_ACCESS_DENIED'
+          ;(templateAccessError as any).details = result
+          throw templateAccessError
+        }
+        
+        throw new Error(result.error || 'Failed to create invitation')
+      }
+
+      // Check if package was reset and show notification
+      if (result.packageReset && result.packageReset.old_package !== 'basic') {
+        console.log(`Package reset: ${result.packageReset.old_package} → ${result.packageReset.new_package}`)
+        // You could add a toast notification here if you have a toast system
+        // toast.info(`Your ${result.packageReset.old_package} package has been used and reset to basic. Purchase again for more premium invitations.`)
+      }
+
+      // Get the created invitation details
+      const invitation = {
+        id: result.invitationId,
+        title: formData.bride_full_name && formData.groom_full_name 
+          ? `${formData.bride_full_name} & ${formData.groom_full_name} Wedding`
+          : 'Wedding Invitation',
+        // Add other necessary fields
       }
 
       setCreatedInvitation(invitation)

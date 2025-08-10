@@ -51,7 +51,7 @@ export function CreateInvitationLayout({
             {isEditMode && existingInvitationTitle && (
               <div className="sm:hidden">
                 <h1 className="text-lg font-semibold text-gray-900">Edit Invitation</h1>
-                <p className="text-sm text-gray-600">{existingInvitationTitle}</p>
+                <p className="text-sm text-gray-600 break-words hyphens-auto">{existingInvitationTitle}</p>
               </div>
             )}
           </div>
@@ -60,7 +60,7 @@ export function CreateInvitationLayout({
           {isEditMode && existingInvitationTitle && (
             <div className="hidden sm:block text-center">
               <h1 className="text-2xl font-bold text-gray-900">Edit Invitation</h1>
-              <p className="text-gray-600">{existingInvitationTitle}</p>
+              <p className="text-gray-600 break-words hyphens-auto max-w-2xl mx-auto">{existingInvitationTitle}</p>
             </div>
           )}
           

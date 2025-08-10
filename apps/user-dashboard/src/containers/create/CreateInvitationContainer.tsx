@@ -60,8 +60,10 @@ export function CreateInvitationContainer() {
     stepHandlers,
     handleBack,
     handleUpgradeAndCreate,
+    handlePaymentSubmission,
     goToDashboard,
     handleStepClick,
+    showUpgradeDialog,
     hideUpgradeDialog,
     hideShareModal,
     
@@ -106,7 +108,7 @@ export function CreateInvitationContainer() {
           onSuperQuickStart={stepHandlers.handleSuperQuickStart}
           onFormSubmit={stepHandlers.handleFormSubmit}
           onTemplateSelect={stepHandlers.handleTemplateSelect}
-          onPackageUpgrade={() => {}} // Handled internally by hook
+          onPackageUpgrade={showUpgradeDialog}
           onAutoFill={stepHandlers.handleAutoFill}
         />
       </CreateInvitationLayout>
@@ -115,7 +117,7 @@ export function CreateInvitationContainer() {
       <UpgradeModal
         isOpen={showUpgradeModal}
         onClose={hideUpgradeDialog}
-        onUpgrade={handleUpgradeAndCreate}
+        onPaymentSubmit={handlePaymentSubmission}
         isLoading={isSubmitting}
       />
 

@@ -251,7 +251,7 @@ function DashboardPage() {
                       <CardHeader className="pb-3">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <CardTitle className="text-lg font-semibold truncate text-gray-900">
+                            <CardTitle className="text-lg font-semibold text-gray-900 break-words hyphens-auto leading-tight">
                               {invitation.title}
                             </CardTitle>
                             <div className="flex items-center gap-2 mt-1">

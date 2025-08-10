@@ -165,13 +165,6 @@ export function useStepHandlers({
 
     console.log('✅ All data available, proceeding with save')
 
-    // Check if user needs to upgrade package
-    if (template.is_premium && selectedPackage === 'basic') {
-      console.log('🔄 Showing upgrade dialog for premium template')
-      showUpgradeDialog()
-      return
-    }
-
     console.log('🚀 Calling onCreateInvitation')
     await onCreateInvitation()
   }

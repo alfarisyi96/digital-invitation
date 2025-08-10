@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/client'
+import { edgeFunctionsService } from './edgeFunctionsService'
 
 export interface UserProfile {
   id: string
@@ -128,7 +129,7 @@ class SupabaseService {
   // User Profile Methods
   async getUserProfile(): Promise<UserProfile | null> {
     const { data, error } = await this.supabase
-      .from('users')
+      .from('user_profiles')
       .select('*')
       .single()
 
@@ -142,7 +143,7 @@ class SupabaseService {
 
   async updateUserProfile(updates: Partial<UserProfile>): Promise<UserProfile | null> {
     const { data, error } = await this.supabase
-      .from('users')
+      .from('user_profiles')
       .update(updates)
       .select()
       .single()
@@ -226,6 +227,39 @@ class SupabaseService {
     }
 
     return data
+  }
+
+  // Secure invitation creation using Edge Functions with package validation
+  async createInvitationSecure(invitation: {
+    title: string
+    type: InvitationType
+    template_id?: string  // Changed from number to string for UUID support
+    form_data?: Record<string, any>
+  }): Promise<{ success: boolean; invitationId?: string; error?: string; packageReset?: any }> {
+    try {
+      // Use Edge Function for secure creation with package validation
+      const result = await edgeFunctionsService.createInvitationWithValidation({
+        templateId: invitation.template_id || 'e1a2b3c4-d5e6-47f8-89a0-123456789abc', // Default to first basic template UUID
+        invitationData: {
+          title: invitation.title,
+          type: invitation.type,
+          ...invitation.form_data
+        }
+      })
+
+      return {
+        success: result.success,
+        invitationId: result.data?.invitation?.id,
+        error: result.error,
+        packageReset: result.data?.package_reset
+      }
+    } catch (error) {
+      console.error('Error creating invitation securely:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create invitation'
+      }
+    }
   }
 
   async updateInvitation(id: string, updates: Partial<Invitation>): Promise<Invitation | null> {

@@ -361,31 +361,49 @@ export function useCreateInvitationFlow() {
       }
       
       console.log('✅ Invitation operation completed successfully')
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error saving invitation:', error)
+      console.log('Error details:', {
+        message: error.message,
+        type: error.type,
+        stack: error.stack,
+        details: error.details
+      })
+      
+      // Handle specific error types that should trigger upgrade flow
+      if (error.type === 'PACKAGE_LIMIT_EXCEEDED' || error.message?.includes('Package limit exceeded')) {
+        console.log('📦 Package limit exceeded - showing upgrade modal')
+        packageState.showUpgradeDialog()
+      } else if (error.type === 'TEMPLATE_ACCESS_DENIED' || error.message?.includes('Template not accessible with current package')) {
+        console.log('🔒 Template access denied - showing upgrade modal')
+        packageState.showUpgradeDialog()
+      } else {
+        // Handle other errors (could show a generic error modal here)
+        console.error('❌ Unexpected error:', error.message)
+        // For debugging: also show upgrade modal for any creation error in case the error type detection failed
+        if (error.message?.includes('Package') || error.message?.includes('limit') || error.message?.includes('Template')) {
+          console.log('🤔 Error might be package-related, showing upgrade modal as fallback')
+          packageState.showUpgradeDialog()
+        }
+      }
     }
   }
 
-  // Package upgrade business logic
-  const handleUpgradeAndCreate = async () => {
-    packageState.upgradeToGold()
-    
-    const { formData } = formDataState
-    const { selectedCategory, selectedTemplate } = navigationState
-    
-    if (formData && selectedCategory && selectedTemplate) {
-      try {
-        await invitationOperations.createNewInvitation(
-          selectedCategory,
-          formData,
-          'gold',
-          selectedTemplate
-        )
-        modalState.showShare()
-      } catch (error) {
-        console.error('Error creating invitation after upgrade:', error)
-      }
+  // Package upgrade business logic with payment
+  const handlePaymentSubmission = async (paymentData: any) => {
+    try {
+      const result = await packageState.submitPaymentConfirmation(paymentData)
+      return result
+    } catch (error) {
+      console.error('Error submitting payment:', error)
+      return { success: false, error: 'Failed to submit payment confirmation' }
     }
+  }
+
+  const handleUpgradeAndCreate = async () => {
+    // This is now handled by the payment flow
+    // Keep for backward compatibility but it should trigger payment modal
+    packageState.showUpgradeDialog()
   }
 
   // Navigation business logic
@@ -483,10 +501,12 @@ export function useCreateInvitationFlow() {
     stepHandlers,
     handleBack,
     handleUpgradeAndCreate,
+    handlePaymentSubmission,
     goToDashboard,
     handleStepClick,
     
     // Modal handlers
+    showUpgradeDialog: packageState.showUpgradeDialog,
     hideUpgradeDialog: packageState.hideUpgradeDialog,
     hideShareModal: modalState.hideShare,
     
