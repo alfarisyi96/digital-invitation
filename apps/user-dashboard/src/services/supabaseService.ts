@@ -22,7 +22,7 @@ export interface Invitation {
   event_date: string | null
   location?: string
   custom_data?: Record<string, any>
-  status: 'draft' | 'sent' | 'viewed' | 'confirmed' | 'published' | 'unpublished'
+  status: 'draft' | 'sent' | 'viewed' | 'confirmed' | 'published' | 'archived'
   views_count?: number
   public_slug: string | null
   unique_visitors: number
@@ -35,7 +35,7 @@ export interface Invitation {
 }
 
 export type InvitationType = 'wedding' | 'birthday' | 'graduation' | 'baby_shower' | 'business' | 'anniversary' | 'party'
-export type InvitationStatus = 'draft' | 'published' | 'unpublished'
+export type InvitationStatus = 'draft' | 'published' | 'archived' | 'sent' | 'viewed' | 'confirmed'
 export type PackageType = 'basic' | 'gold'
 
 export interface InvitationGuest {
@@ -306,7 +306,7 @@ class SupabaseService {
     const { data, error } = await this.supabase
       .from('invites')
       .update({
-        status: 'unpublished',
+        status: 'draft',
         is_published: false,
         updated_at: new Date().toISOString()
       })
