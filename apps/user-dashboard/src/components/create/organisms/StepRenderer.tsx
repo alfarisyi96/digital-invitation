@@ -66,7 +66,11 @@ export function StepRenderer({
       if (selectedCategory === 'wedding') {
         return (
           <form onSubmit={form.handleSubmit(onFormSubmit)}>
-            <WeddingForm form={form} onAutoFill={onAutoFill} />
+            <WeddingForm 
+              form={form} 
+              category={selectedCategory}
+              onAutoFill={onAutoFill} 
+            />
             
             <div className="flex justify-end mt-6">
               <Button 

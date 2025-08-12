@@ -18,10 +18,12 @@ export interface Invitation {
   title: string
   description?: string
   template_id: string | null
-  category_id: string | null
+  category: string // Updated: now string instead of category_id
   event_date: string | null
   location?: string
   custom_data?: Record<string, any>
+  details?: InvitationDetails // Enhanced details structure
+  images?: InvitationImages // New: premium images
   status: 'draft' | 'sent' | 'viewed' | 'confirmed' | 'published' | 'archived'
   views_count?: number
   public_slug: string | null
@@ -32,6 +34,95 @@ export interface Invitation {
   confirmed_count: number
   created_at: string
   updated_at: string
+}
+
+// New interfaces for enhanced structure
+export interface EventDetails {
+  type: 'akad' | 'resepsi' | 'main' | 'custom'
+  title: string
+  date: string
+  time: string
+  location: string
+  address: string
+  google_maps_url?: string
+  google_maps_embed?: string
+}
+
+export interface GiftDetails {
+  type: 'bank' | 'ewallet' | 'cash'
+  bank_name: string
+  account_number: string
+  account_name: string
+  qr_code?: string // Cloudflare image ID
+}
+
+export interface InvitationDetails {
+  events: EventDetails[]
+  gift: GiftDetails[]
+  couple?: {
+    bride?: {
+      name: string
+      parent?: string
+    }
+    groom?: {
+      name: string
+      parent?: string
+    }
+  }
+  // Keep existing fields for backward compatibility
+  event_date?: string
+  location?: string
+  address?: string
+}
+
+export interface InvitationImages {
+  bride?: string // Cloudflare image ID
+  groom?: string // Cloudflare image ID
+  hero?: string // Cloudflare image ID
+  gallery?: string[] // Array of Cloudflare image IDs
+}
+
+// Template system interfaces
+export interface ColorCombination {
+  name: string
+  primary: string
+  secondary: string
+  accent: string
+}
+
+export interface TemplateFeatures {
+  rsvp: boolean
+  comments: boolean
+  images: boolean
+}
+
+export interface Template {
+  id: string
+  name: string
+  slug: string
+  category: string
+  description?: string
+  thumbnail_url?: string
+  is_premium: boolean
+  tier: 'basic' | 'premium'
+  default_styles: Record<string, any>
+  color_combinations: ColorCombination[]
+  features: TemplateFeatures
+  created_at: string
+  updated_at: string
+}
+
+export interface FontOption {
+  name: string
+  heading: string
+  body: string
+}
+
+export interface TemplateCustomization {
+  selectedColorCombination: ColorCombination
+  selectedFontOption: FontOption
+  customTexts?: Record<string, string>
+  customImages?: Record<string, string>
 }
 
 export type InvitationType = 'wedding' | 'birthday' | 'graduation' | 'baby_shower' | 'business' | 'anniversary' | 'party'
@@ -49,20 +140,29 @@ export interface InvitationGuest {
   created_at: string
 }
 
-export interface Template {
-  id: string
+export type TemplateStyle = 'classic' | 'modern' | 'elegant' | 'floral' | 'minimalist' | 'rustic' | 'vintage' | 'tropical'
+
+// Enhanced form-specific interfaces (for form input)
+export interface FormEventDetails {
   name: string
-  description: string | null
-  thumbnail_url: string | null
-  template_data: Record<string, any>
-  category: string | null
-  is_premium: boolean
-  is_active: boolean
-  created_at: string
-  updated_at: string
+  date: string
+  time: string
+  venue_name: string
+  venue_address: string
+  venue_maps_url?: string
+  dress_code?: string
+  notes?: string
 }
 
-export type TemplateStyle = 'classic' | 'modern' | 'elegant' | 'floral' | 'minimalist' | 'rustic' | 'vintage' | 'tropical'
+// Form-specific gift account interface
+export interface FormGiftAccount {
+  bank_name: string
+  account_number: string
+  account_name: string
+  account_type: 'bank' | 'ewallet' | 'other'
+  qr_code_url?: string
+  notes?: string
+}
 
 // Wedding-specific form data structure
 export interface WeddingFormData {
@@ -115,6 +215,12 @@ export interface WeddingFormData {
     account_number: string
     account_name: string
   }
+  
+  // Enhanced event details (supports multiple events)
+  events?: FormEventDetails[]
+  
+  // Enhanced gift accounts (supports multiple accounts)
+  gift_accounts?: FormGiftAccount[]
 }
 
 // Package feature definitions
@@ -581,24 +687,25 @@ class SupabaseService {
       .subscribe()
   }
 
-  // Template Methods
-  async getTemplates(category?: InvitationType, packageType?: PackageType): Promise<Template[]> {
+  // =====================================================
+  // ENHANCED TEMPLATE SYSTEM METHODS
+  // =====================================================
+
+  async getTemplates(category?: string, packageType?: PackageType): Promise<Template[]> {
     let query = this.supabase
       .from('templates')
       .select('*')
-      .eq('is_active', true)
       .order('created_at', { ascending: false })
 
     if (category) {
       query = query.eq('category', category)
     }
 
-    // Note: package_type filtering removed since it doesn't exist in database
-    // Will use is_premium instead
+    // Filter by package type using tier field
     if (packageType === 'basic') {
-      query = query.eq('is_premium', false)
+      query = query.eq('tier', 'basic')
     } else if (packageType === 'gold') {
-      query = query.eq('is_premium', true)
+      query = query.eq('tier', 'premium')
     }
 
     const { data, error } = await query
@@ -609,6 +716,21 @@ class SupabaseService {
     }
 
     return data || []
+  }
+
+  async getTemplateBySlug(slug: string): Promise<Template | null> {
+    const { data, error } = await this.supabase
+      .from('templates')
+      .select('*')
+      .eq('slug', slug)
+      .single()
+
+    if (error) {
+      console.error('Error fetching template by slug:', error)
+      return null
+    }
+
+    return data
   }
 
   async getTemplate(id: string): Promise<Template | null> {
@@ -624,6 +746,46 @@ class SupabaseService {
     }
 
     return data
+  }
+
+  // Helper method to normalize details for backward compatibility
+  normalizeInvitationDetails(details: any): InvitationDetails {
+    if (!details) {
+      return { events: [], gift: [] }
+    }
+
+    // If it's the old format (single event)
+    if (details.event_date && !details.events) {
+      return {
+        events: [{
+          type: 'main',
+          title: 'Main Event',
+          date: details.event_date,
+          time: details.event_time || '',
+          location: details.location || '',
+          address: details.address || '',
+          google_maps_url: details.google_maps_url || '',
+          google_maps_embed: details.google_maps_embed || ''
+        }],
+        gift: details.gift || [],
+        couple: details.couple || {},
+        // Keep old fields for compatibility
+        event_date: details.event_date,
+        location: details.location,
+        address: details.address
+      }
+    }
+
+    // Already new format
+    return {
+      events: details.events || [],
+      gift: details.gift || [],
+      couple: details.couple || {},
+      // Keep old fields for compatibility
+      event_date: details.event_date,
+      location: details.location,
+      address: details.address
+    }
   }
 }
 

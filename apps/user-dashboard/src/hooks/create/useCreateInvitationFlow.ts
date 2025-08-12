@@ -83,6 +83,9 @@ export function useCreateInvitationFlow() {
         bride_mother: formDataState.formData.bride_mother || '',
         groom_father: formDataState.formData.groom_father || '',
         groom_mother: formDataState.formData.groom_mother || '',
+        // Enhanced fields
+        events: formDataState.formData.events || [],
+        gift_accounts: formDataState.formData.gift_accounts || [],
       }
       
       console.log('🔄 Syncing form data with form state:', formValues)

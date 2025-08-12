@@ -11,6 +11,8 @@ interface CategorySelectionProps {
 }
 
 export function CategorySelection({ selectedCategory, onCategorySelect, onSuperQuickStart, isEditMode = false }: CategorySelectionProps) {
+  const currentCategory = selectedCategory ? INVITATION_CATEGORIES.find(cat => cat.id === selectedCategory) : null
+
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="text-center">
@@ -23,7 +25,7 @@ export function CategorySelection({ selectedCategory, onCategorySelect, onSuperQ
             : 'Select the type of invitation you want to create'
           }
         </p>
-        
+                
         <DevTools 
           onQuickStartCategory={onCategorySelect}
           onSuperQuickStart={onSuperQuickStart}

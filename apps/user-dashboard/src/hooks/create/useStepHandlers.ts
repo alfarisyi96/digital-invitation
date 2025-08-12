@@ -99,10 +99,25 @@ export function useStepHandlers({
         bride_mother: SAMPLE_WEDDING_DATA.bride_mother || '',
         groom_father: SAMPLE_WEDDING_DATA.groom_father || '',
         groom_mother: SAMPLE_WEDDING_DATA.groom_mother || '',
+        // Enhanced fields
+        events: SAMPLE_WEDDING_DATA.events || [],
+        gift_accounts: SAMPLE_WEDDING_DATA.gift_accounts || [],
       }
       
       console.log('✅ Auto-fill form completed:', formValues)
+      console.log('🔍 Events data:', SAMPLE_WEDDING_DATA.events)
+      console.log('🔍 Gift accounts data:', SAMPLE_WEDDING_DATA.gift_accounts)
+      
+      // Use reset to populate all fields at once
       form.reset(formValues)
+      
+      // Also explicitly set the enhanced fields to trigger watch
+      if (SAMPLE_WEDDING_DATA.events) {
+        form.setValue('events', SAMPLE_WEDDING_DATA.events, { shouldValidate: true })
+      }
+      if (SAMPLE_WEDDING_DATA.gift_accounts) {
+        form.setValue('gift_accounts', SAMPLE_WEDDING_DATA.gift_accounts, { shouldValidate: true })
+      }
     }
   }
 
@@ -128,6 +143,9 @@ export function useStepHandlers({
       bride_mother: data.bride_mother,
       groom_father: data.groom_father,
       groom_mother: data.groom_mother,
+      // Enhanced fields
+      events: data.events,
+      gift_accounts: data.gift_accounts,
     }
 
     console.log('✅ Form data processed:', localFormData)

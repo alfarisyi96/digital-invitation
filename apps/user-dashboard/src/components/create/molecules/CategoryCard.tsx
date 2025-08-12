@@ -18,13 +18,18 @@ interface CategoryCardProps {
 export function CategoryCard({ category, isSelected, onClick }: CategoryCardProps) {
   return (
     <Card 
-      className={`cursor-pointer transition-all hover:shadow-lg ${
+      className={`cursor-pointer transition-all hover:shadow-lg relative ${
         isSelected 
-          ? 'ring-2 ring-blue-500 border-blue-500' 
+          ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-50' 
           : 'hover:border-gray-300'
       }`}
       onClick={() => onClick(category.id)}
     >
+      {isSelected && (
+        <div className="absolute -top-2 -right-2 bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold z-10">
+          ✓
+        </div>
+      )}
       <CardContent className="p-4 sm:p-6 text-center">
         <CategoryIcon 
           icon={category.icon} 

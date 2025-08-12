@@ -3,7 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { FormField } from '../molecules/FormField'
 import { DevTools } from '../molecules/DevTools'
-import { Heart, Calendar, Users } from 'lucide-react'
+import { EventDetailsForm } from '../molecules/EventDetailsForm'
+import { GiftDetailsForm } from '../molecules/GiftDetailsForm'
+import { Heart, Calendar, Users, Gift, MapPin } from 'lucide-react'
+import { InvitationType } from '@/services/supabaseService'
 
 interface WeddingFormValues {
   title: string
@@ -25,10 +28,11 @@ interface WeddingFormValues {
 
 interface WeddingFormProps {
   form: UseFormReturn<WeddingFormValues>
+  category?: InvitationType | null
   onAutoFill?: () => void
 }
 
-export function WeddingForm({ form, onAutoFill }: WeddingFormProps) {
+export function WeddingForm({ form, category, onAutoFill }: WeddingFormProps) {
   return (
     <div className="space-y-6">
       <div className="text-center">
@@ -88,53 +92,14 @@ export function WeddingForm({ form, onAutoFill }: WeddingFormProps) {
         </CardContent>
       </Card>
 
-      {/* Event Details */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Calendar className="w-5 h-5 mr-2 text-blue-500" />
-            Event Details
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <FormField
-              id="wedding_date"
-              label="Wedding Date"
-              type="date"
-              required
-              form={form}
-            />
-            <FormField
-              id="ceremony_time"
-              label="Ceremony Time (Optional)"
-              type="time"
-              form={form}
-            />
-            <FormField
-              id="reception_time"
-              label="Reception Time (Optional)"
-              type="time"
-              form={form}
-            />
-          </div>
-
-          <FormField
-            id="venue_name"
-            label="Venue Name"
-            placeholder="e.g., Grand Ballroom Hotel"
-            required
-            form={form}
-          />
-
-          <FormField
-            id="venue_address"
-            label="Venue Address (Optional)"
-            placeholder="e.g., 123 Main Street, City, State"
-            form={form}
-          />
-        </CardContent>
-      </Card>
+      {/* Enhanced Event Details */}
+      <EventDetailsForm 
+        form={form}
+        category={category}
+        onLocationSelect={(address: string, mapsUrl: string) => {
+          console.log('Location selected:', { address, mapsUrl })
+        }}
+      />
 
       {/* Family Information */}
       <Card>
@@ -176,6 +141,16 @@ export function WeddingForm({ form, onAutoFill }: WeddingFormProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Enhanced Gift Details */}
+      <GiftDetailsForm 
+        form={form}
+        onGenerateQR={async (accountData: any) => {
+          // Integration with Cloudflare Images or QR service
+          const qrData = `Bank: ${accountData.bank_name}\nAccount: ${accountData.account_number}\nName: ${accountData.account_name}`
+          return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`
+        }}
+      />
 
       {/* Personal Message */}
       <Card>

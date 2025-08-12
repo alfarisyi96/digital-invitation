@@ -2,6 +2,27 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 
+// Enhanced form schema with new fields
+const eventDetailSchema = z.object({
+  name: z.string(),
+  date: z.string(),
+  time: z.string(),
+  venue_name: z.string(),
+  venue_address: z.string(),
+  venue_maps_url: z.string().optional(),
+  dress_code: z.string().optional(),
+  notes: z.string().optional(),
+})
+
+const giftAccountSchema = z.object({
+  bank_name: z.string(),
+  account_number: z.string(),
+  account_name: z.string(),
+  account_type: z.enum(['bank', 'ewallet', 'other']),
+  qr_code_url: z.string().optional(),
+  notes: z.string().optional(),
+})
+
 // Form validation schema
 const weddingFormSchema = z.object({
   title: z.string(),
@@ -19,6 +40,9 @@ const weddingFormSchema = z.object({
   bride_mother: z.string().optional(),
   groom_father: z.string().optional(),
   groom_mother: z.string().optional(),
+  // Enhanced fields
+  events: z.array(eventDetailSchema).optional(),
+  gift_accounts: z.array(giftAccountSchema).optional(),
 })
 
 export type WeddingFormValues = z.infer<typeof weddingFormSchema>
@@ -42,6 +66,8 @@ export function useWeddingForm() {
       bride_mother: '',
       groom_father: '',
       groom_mother: '',
+      events: [],
+      gift_accounts: [],
     }
   })
 
