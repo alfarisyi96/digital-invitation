@@ -1,0 +1,15 @@
+# Ignore all Supabase generated files and folders
+.branches/
+.temp/
+.output/
+.cache/
+.env
+.env.*
+.DS_Store
+.history/
+.pytest_cache/
+.mypy_cache/
+.coverage
+.vscode/
+.idea/
+.svelte-kit/
