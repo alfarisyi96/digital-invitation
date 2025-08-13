@@ -71,14 +71,43 @@ export function useRSVP(invitationId?: string) {
         .from('rsvp_settings')
         .select('*')
         .eq('invite_id', invitationId)
-        .single()
+        .maybeSingle() // Use maybeSingle() instead of single() to handle 0 rows gracefully
 
-      if (settingsError && settingsError.code !== 'PGRST116') { // Not found is OK
+      if (settingsError) {
         console.error('RSVP settings error:', settingsError)
       }
 
+      // If no settings exist, create default ones
+      let finalSettingsData = settingsData
+      if (!settingsData) {
+        const defaultSettings = {
+          invite_id: invitationId,
+          is_enabled: true,
+          max_guests_per_response: 4,
+          require_email: false,
+          require_phone: false,
+          collect_dietary_restrictions: true,
+          collect_special_requests: true,
+          allow_guest_message: true
+        }
+
+        const { data: createdSettings, error: createError } = await supabase
+          .from('rsvp_settings')
+          .insert(defaultSettings)
+          .select()
+          .single()
+
+        if (createError) {
+          console.error('Error creating default RSVP settings:', createError)
+          // Use default values if creation fails
+          finalSettingsData = defaultSettings
+        } else {
+          finalSettingsData = createdSettings
+        }
+      }
+
       setSummary(summaryData)
-      setSettings(settingsData || {
+      setSettings(finalSettingsData || {
         is_enabled: true,
         max_guests_per_response: 4,
         require_email: false,

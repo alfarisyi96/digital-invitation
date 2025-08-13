@@ -12,6 +12,7 @@ export function useInvitationPreview() {
   const [invitation, setInvitation] = useState<Invitation | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showShareModal, setShowShareModal] = useState(false)
 
   useEffect(() => {
     if (slugOrId && invitations.length > 0) {
@@ -54,29 +55,21 @@ export function useInvitationPreview() {
   }
 
   const handleShare = () => {
-    if (invitation?.public_slug && invitation.is_published) {
-      // This would be the actual public URL on your landing page frontend
-      const publicUrl = `${process.env.NEXT_PUBLIC_LANDING_PAGE_URL || 'https://your-landing-page.com'}/invite/${invitation.public_slug}`
-      
-      if (navigator.share) {
-        navigator.share({
-          title: invitation.title,
-          text: `You're invited! ${invitation.description || ''}`,
-          url: publicUrl,
-        })
-      } else {
-        // Fallback: copy to clipboard
-        navigator.clipboard.writeText(publicUrl).then(() => {
-          alert('Public URL copied to clipboard!')
-        })
-      }
-    } else {
-      alert('Invitation must be published to share publicly')
-    }
+    setShowShareModal(true)
   }
 
   // Extract form data from custom_data
   const formData = invitation?.custom_data as any || {}
+
+  // Prepare share invitation data
+  const shareInvitationData = invitation ? {
+    id: invitation.id,
+    title: invitation.title,
+    public_slug: invitation.public_slug || undefined,
+    bride_full_name: formData?.bride_full_name,
+    groom_full_name: formData?.groom_full_name,
+    ceremony_date: formData?.ceremony_date
+  } : null
 
   return {
     // State
@@ -84,11 +77,14 @@ export function useInvitationPreview() {
     formData,
     loading,
     error,
+    showShareModal,
+    shareInvitationData,
     
     // Actions
     handleBack,
     handleEdit,
     handleShare,
+    setShowShareModal,
     
     // Utility
     slugOrId

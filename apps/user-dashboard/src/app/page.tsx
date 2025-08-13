@@ -9,6 +9,8 @@ export default function HomePage() {
   const router = useRouter()
 
   useEffect(() => {
+    console.log(isLoading, 'isLoading');
+    console.log(isAuthenticated, 'isAuthenticated');
     if (!isLoading) {
       if (isAuthenticated) {
         router.replace('/dashboard')

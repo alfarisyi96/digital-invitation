@@ -1,175 +1,184 @@
 # Template Seeder Documentation
 
-This project includes a comprehensive template seeding system that populates the database with wedding invitation templates and package definitions.
+## Overview
 
-## Available Commands
+The template seeder is responsible for populating the `templates` table with wedding invitation templates that correspond to the actual template components available in the `@invitation/templates` package.
 
-### Shell Script (Unix/Linux/macOS)
-```bash
-# Run the shell script directly
-./seed-templates.sh
+## Files
 
-# Or using npm script
-npm run seed:templates
-npm run db:seed
-```
+### 1. `seed.sql` - Main Seeder
+- **Purpose**: SQL script that seeds templates and package definitions
+- **Usage**: Run via `supabase db reset` or manually with `psql`
+- **Features**: 
+  - Clears existing templates for clean reseeding
+  - Inserts templates with proper UUIDs and metadata
+  - Includes both primary templates and fallback mappings
+  - Seeds package definitions
 
-### Node.js Script (Cross-platform)
-```bash
-# Run the Node.js script directly  
-node seed-templates.js
+### 2. `seed-templates.js` - JavaScript Runner
+- **Purpose**: Cross-platform Node.js script for running the seeder
+- **Usage**: `node supabase/seed-templates.js`
+- **Features**:
+  - Checks Supabase connection before seeding
+  - Provides colored console output with progress indicators
+  - Shows detailed summary of seeded templates
+  - Error handling with helpful messages
 
-# Or using npm script
-npm run seed:templates
-```
+## Template Mapping
 
-### Combined Commands
-```bash
-# Reset database and seed templates
-npm run db:reset:seed
+### Primary Templates (Available in Templates Package)
+1. **Simple Classic** (`simple-classic`)
+   - ID: `11111111-1111-1111-1111-111111111111`
+   - Tier: Basic
+   - Package: basic
 
-# Start Supabase, reset DB, seed templates, and start frontend
-npm run setup
-```
+2. **Elegant Basic** (`elegant-basic`)
+   - ID: `22222222-2222-2222-2222-222222222222`
+   - Tier: Basic
+   - Package: basic
 
-## What Gets Seeded
+3. **Luxury Premium** (`luxury-premium`)
+   - ID: `33333333-3333-3333-3333-333333333333`
+   - Tier: Premium
+   - Package: gold
 
-### Templates (7 total)
-**Basic Package Templates (4):**
-1. **Elegant Classic** - Timeless elegance with classic typography and golden accents
-2. **Modern Minimalist** - Clean, contemporary design with bold typography  
-3. **Rustic Garden** - Natural beauty with botanical illustrations and earthy tones
-4. **Beach Sunset** - Coastal vibes with sunset colors and ocean motifs
+4. **Modern Premium** (`modern-premium`)
+   - ID: `44444444-4444-4444-4444-444444444444`
+   - Tier: Premium
+   - Package: gold
 
-**Premium/Gold Package Templates (3):**
-1. **Luxury Royal** - Opulent design with gold foil effects and marble textures
-2. **Vintage Romance** - Romantic vintage design with lace patterns and pastels
-3. **Urban Chic** - Metropolitan sophistication with industrial elements
+### Fallback Templates (For Backward Compatibility)
+1. **Elegant Classic** (`elegant-classic`)
+   - Maps to: `elegant-basic` component
+   - ID: `e1a2b3c4-d5e6-47f8-89a0-123456789abc`
 
-### Package Definitions (2)
-1. **Basic Package** - Free, 1 invitation limit, basic templates
-2. **Gold Package** - $9.99, unlimited invitations, premium templates
+2. **Modern Minimalist** (`modern-minimalist`)
+   - Maps to: `simple-classic` component
+   - ID: `f2a3b4c5-d6e7-48f9-9ab0-123456789def`
 
-## Template Structure
+## Template Registry Mapping
 
-Each template includes:
-- **Basic Info**: Name, description, thumbnail URL
-- **Design Data**: Colors, fonts, layout elements, decorations
-- **Package Requirements**: Basic or Gold package access
-- **Special Effects**: Premium templates include advanced animations
-- **Layout Sections**: Predefined sections for different invitation parts
+The `@invitation/templates` package registry includes fallback mappings:
 
-## Prerequisites
-
-- Supabase running locally (`supabase start`)
-- PostgreSQL client tools (`psql`) installed
-- Node.js (for the JavaScript version)
-
-## File Structure
-
-```
-/
-├── seed-templates.sh          # Shell script seeder
-├── seed-templates.js          # Node.js script seeder  
-├── supabase/seed.sql          # SQL seed data
-├── package.json               # NPM scripts
-└── README-SEEDER.md          # This documentation
-```
-
-## Template Data Structure
-
-Templates are stored with comprehensive JSON configuration:
-
-```json
-{
-  "layout": "classic|modern|organic|luxury|vintage|coastal|metropolitan",
-  "theme": "elegant|minimalist|rustic|royal|romantic|beach|urban", 
-  "colors": {
-    "primary": "#color",
-    "secondary": "#color",
-    "accent": "#color", 
-    "text": "#color"
-  },
-  "fonts": {
-    "heading": "Font Name",
-    "body": "Font Name",
-    "accent": "Font Name"
-  },
-  "elements": {
-    "border": "style",
-    "background": "texture",
-    "decorations": ["element1", "element2"]
-  },
-  "special_effects": ["effect1", "effect2"], // Premium only
-  "layout_sections": ["section1", "section2", "section3"]
+```typescript
+const templateImports = {
+  'simple-classic': () => import('./basic/SimpleClassic/index'),
+  'elegant-basic': () => import('./basic/ElegantBasic/index'),
+  'elegant-classic': () => import('./basic/ElegantBasic/index'), // Fallback
+  'modern-minimalist': () => import('./basic/SimpleClassic/index'), // Fallback
+  'luxury-premium': () => import('./premium/LuxuryPremium/index'),
+  'modern-premium': () => import('./premium/ModernPremium/index'),
 }
 ```
 
-## Usage in Application
+## Features Included
 
-After seeding, templates can be accessed via:
+### Basic Templates
+- RSVP functionality
+- Comments system
+- Basic ceremony details
+
+### Premium Templates
+- All basic features plus:
+- Hero image support
+- Photo galleries
+- Parallax effects (Modern Premium only)
+- Advanced customization options
+
+## Usage Instructions
+
+### Running the Seeder
+
+#### Option 1: Via Database Reset (Recommended)
+```bash
+cd /path/to/project/web/supabase
+supabase db reset
+```
+
+#### Option 2: Via JavaScript Runner
+```bash
+cd /path/to/project/web
+node supabase/seed-templates.js
+```
+
+#### Option 3: Direct SQL Execution
+```bash
+cd /path/to/project/web/supabase
+psql postgresql://postgres:postgres@localhost:54322/postgres -f seed.sql
+```
+
+### Verification
+
+After seeding, verify templates are loaded:
 
 ```sql
--- Get all basic templates
-SELECT * FROM templates WHERE required_package = 'basic' AND is_active = true;
-
--- Get premium templates  
-SELECT * FROM templates WHERE required_package = 'gold' AND is_active = true;
-
--- Get template by ID
-SELECT * FROM templates WHERE id = 'template-uuid';
+SELECT name, slug, tier, required_package 
+FROM templates 
+ORDER BY tier, name;
 ```
+
+Expected output: 6 templates (4 basic, 2 premium)
+
+### Updating Existing Invitations
+
+If you have existing invitations, update them to use valid template IDs:
+
+```sql
+-- For existing invitations with old template references
+UPDATE invites 
+SET template_id = 'e1a2b3c4-d5e6-47f8-89a0-123456789abc' 
+WHERE template_id IS NULL OR template_id NOT IN (
+    SELECT id FROM templates
+);
+```
+
+## Package Definitions
+
+The seeder also creates package definitions:
+
+1. **Basic Package**
+   - Price: Free
+   - Max Invitations: 1
+   - Access: Basic templates only
+
+2. **Gold Package**  
+   - Price: $9.99
+   - Max Invitations: Unlimited (-1)
+   - Access: All templates including premium
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **"Supabase is not running"**
+1. **Supabase Not Running**
    ```bash
    supabase start
    ```
 
-2. **"Seed file not found"**
-   - Ensure you're in the project root directory
-   - Check that `supabase/seed.sql` exists
+2. **Template Not Found Errors**
+   - Ensure templates package is built: `cd packages/templates && npm run build`
+   - Check template registry includes the slug
 
-3. **"Permission denied"**
-   ```bash
-   chmod +x seed-templates.sh
-   chmod +x seed-templates.js
-   ```
+3. **UUID Format Errors**
+   - Template IDs must be valid UUIDs
+   - Use the predefined UUIDs in the seeder
 
-4. **"pg_isready command not found"**
-   - Install PostgreSQL client tools
-   - Or use the Node.js version instead
+4. **Permission Errors**
+   - Ensure proper database permissions
+   - Check Supabase is running on correct port (54322)
 
-### Verify Seeding
+## Development Notes
 
-```bash
-# Check template count
-npm run db:query "SELECT COUNT(*) FROM templates;"
+- Template components must exist in `packages/templates/src/`
+- Template registry must include all slug mappings
+- Database templates should have corresponding React components
+- Fallback mappings allow backward compatibility
+- Features JSON defines available template capabilities
 
-# Check package definitions
-npm run db:query "SELECT package_name, display_name FROM package_definitions;"
-```
+## Future Enhancements
 
-## Customization
-
-To add more templates:
-
-1. Edit `supabase/seed.sql`
-2. Add new template entries following the existing pattern
-3. Use proper UUID format: `xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx`
-4. Set appropriate `required_package` and `package_tier`
-5. Run seeder to apply changes
-
-## Integration with Frontend
-
-The seeded templates integrate with:
-
-- Template selection in invitation creation flow
-- Package-based access control
-- Theme customization system
-- Preview functionality
-
-Templates are automatically filtered based on user's current package (basic/gold) ensuring proper access control.
+- Dynamic template discovery from filesystem
+- Template validation against components
+- Automatic thumbnail generation
+- Template versioning support
+- Custom template upload system

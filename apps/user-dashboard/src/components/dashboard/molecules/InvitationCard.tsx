@@ -1,6 +1,8 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Calendar, Eye, Settings, Share2, Edit3, Trash2 } from 'lucide-react'
 import type { Invitation } from '@/services/supabaseService'
+import { ShareModal } from '../ShareModal'
+import { Switch } from '@/components/ui/switch'
 
 interface InvitationCardProps {
   invitation: Invitation
@@ -23,6 +25,7 @@ export function InvitationCard({
   onManage,
   getStatusBadge 
 }: InvitationCardProps) {
+  const [showShareModal, setShowShareModal] = useState(false)
   const isLoading = actionLoading === invitation.id
 
   const formatDate = (dateString: string) => {
@@ -33,16 +36,19 @@ export function InvitationCard({
     })
   }
 
-  const handleShare = async () => {
-    if (invitation.public_slug && invitation.is_published) {
-      const shareUrl = `${window.location.origin}/i/${invitation.public_slug}`
-      try {
-        await navigator.clipboard.writeText(shareUrl)
-        // You could add a toast notification here
-      } catch (err) {
-        console.error('Failed to copy to clipboard:', err)
-      }
-    }
+  const handleShare = () => {
+    setShowShareModal(true)
+  }
+
+  // Extract wedding data for sharing
+  const customData = invitation.custom_data as any
+  const shareInvitationData = {
+    id: invitation.id,
+    title: invitation.title,
+    public_slug: invitation.public_slug || undefined,
+    bride_full_name: customData?.bride_full_name,
+    groom_full_name: customData?.groom_full_name,
+    ceremony_date: customData?.ceremony_date
   }
 
   return (
@@ -106,37 +112,45 @@ export function InvitationCard({
             </button>
           </div>
 
-          <div className="flex space-x-2">
-            {invitation.is_published && invitation.public_slug && (
+          <div className="flex items-center space-x-3">
+            {(invitation.is_published || invitation.public_slug) && (
               <button
                 onClick={handleShare}
                 className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                title="Copy share link"
+                title="Share invitation"
               >
-                <Share2 className="h-3 w-3" />
+                <Share2 className="h-3 w-3 mr-1" />
+                Share
               </button>
             )}
             
-            {invitation.is_published ? (
-              <button
-                onClick={() => onUnpublish(invitation.id)}
+            {/* Publish Toggle Switch */}
+            <div className="flex items-center space-x-2">
+              <span className="text-xs text-gray-600">
+                {isLoading ? 'Updating...' : (invitation.is_published ? 'Published' : 'Draft')}
+              </span>
+              <Switch
+                checked={invitation.is_published}
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    onPublish(invitation.id)
+                  } else {
+                    onUnpublish(invitation.id)
+                  }
+                }}
                 disabled={isLoading}
-                className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
-              >
-                {isLoading ? 'Unpublishing...' : 'Unpublish'}
-              </button>
-            ) : (
-              <button
-                onClick={() => onPublish(invitation.id)}
-                disabled={isLoading}
-                className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-              >
-                {isLoading ? 'Publishing...' : 'Publish'}
-              </button>
-            )}
+              />
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Share Modal */}
+      <ShareModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        invitation={shareInvitationData}
+      />
     </div>
   )
 }

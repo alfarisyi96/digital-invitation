@@ -75,14 +75,41 @@ export function useComments(invitationId?: string, includeUnapproved: boolean = 
         .from('comment_settings')
         .select('*')
         .eq('invite_id', invitationId)
-        .single()
+        .maybeSingle() // Use maybeSingle() instead of single() to handle 0 rows gracefully
 
-      if (settingsError && settingsError.code !== 'PGRST116') { // Not found is OK
+      if (settingsError) {
         console.error('Comment settings error:', settingsError)
       }
 
+      // If no settings exist, create default ones
+      let finalSettingsData = settingsData
+      if (!settingsData) {
+        const defaultSettings = {
+          invite_id: invitationId,
+          is_enabled: true,
+          require_approval: false,
+          max_comment_length: 500,
+          require_email: false,
+          welcome_message: 'Share your thoughts and well wishes!'
+        }
+
+        const { data: createdSettings, error: createError } = await supabase
+          .from('comment_settings')
+          .insert(defaultSettings)
+          .select()
+          .single()
+
+        if (createError) {
+          console.error('Error creating default comment settings:', createError)
+          // Use default values if creation fails
+          finalSettingsData = defaultSettings
+        } else {
+          finalSettingsData = createdSettings
+        }
+      }
+
       setComments(commentsData || [])
-      setSettings(settingsData || {
+      setSettings(finalSettingsData || {
         is_enabled: true,
         require_approval: false,
         max_comment_length: 500,

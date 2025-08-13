@@ -36,22 +36,57 @@ export function UserProvider({ children }: { children: ReactNode }) {
     avatar: supabaseUser.user_metadata?.avatar_url || supabaseUser.user_metadata?.picture
   })
 
+  const ensureUserProfile = async (supabaseUser: SupabaseUser) => {
+    try {
+      console.log('Ensuring user profile for:', supabaseUser.id)
+      
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Profile check timeout')), 10000)
+      )
+      
+      const profilePromise = supabase.rpc('ensure_user_profile', {
+        user_id_param: supabaseUser.id,
+        user_email: supabaseUser.email,
+        user_name: supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name
+      })
+
+      const { data, error } = await Promise.race([profilePromise, timeoutPromise]) as any
+
+      if (error) {
+        console.warn('Failed to ensure user profile:', error)
+      } else {
+        console.log('User profile check result:', data)
+      }
+    } catch (error) {
+      console.warn('Error checking user profile:', error)
+      // Don't throw the error, just log it so auth flow continues
+    }
+  }
+
   const checkAuth = useCallback(async () => {
     try {
+      console.log('Checking auth...')
       const { data: { session }, error } = await supabase.auth.getSession()
       
       if (error) {
         console.error('Auth check error:', error)
         setUser(null)
         setIsAuthenticated(false)
+        setIsLoading(false)
         return
       }
 
       if (session?.user) {
+        console.log('Session found, ensuring user profile...')
+        // Ensure user profile exists before setting user state
+        await ensureUserProfile(session.user)
+        
         const transformedUser = transformUser(session.user)
         setUser(transformedUser)
         setIsAuthenticated(true)
       } else {
+        console.log('No session found')
         setUser(null)
         setIsAuthenticated(false)
       }
@@ -60,6 +95,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setUser(null)
       setIsAuthenticated(false)
     } finally {
+      console.log('Auth check complete, setting loading to false')
       setIsLoading(false)
     }
   }, [supabase.auth])
@@ -69,8 +105,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state change:', event, !!session?.user)
       
       if (session?.user) {
+        // Ensure user profile exists for any auth state change
+        await ensureUserProfile(session.user)
+        
         const transformedUser = transformUser(session.user)
         setUser(transformedUser)
         setIsAuthenticated(true)
@@ -89,6 +129,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         }
       }
       
+      // Always set loading to false after handling auth state change
       setIsLoading(false)
     })
 
@@ -128,6 +169,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  console.log(isAuthenticated, 'isAuthenticated');
+
   const value = {
     user,
     isLoading,
@@ -154,6 +197,9 @@ export function withAuth<P extends object>(WrappedComponent: React.ComponentType
     const router = useRouter()
 
     useEffect(() => {
+      console.log(isAuthenticated, 'isAuthenticated');
+      console.log(isLoading, 'isLoading');
+
       if (!isLoading && !isAuthenticated) {
         router.replace('/login')
       }

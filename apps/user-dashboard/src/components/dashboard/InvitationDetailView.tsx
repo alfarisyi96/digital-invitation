@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { useComments, useRSVPResponses } from '@/hooks'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -18,7 +18,8 @@ import {
   ExternalLink,
   Copy,
   BarChart3,
-  Calendar
+  Calendar,
+  Loader2
 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from '@/hooks/use-toast'
@@ -33,11 +34,28 @@ interface InvitationDetailViewProps {
 export default function InvitationDetailView({ 
   invitation, 
   rsvpSummary, 
-  rsvpResponses, 
-  comments 
+  rsvpResponses: initialRsvpResponses, 
+  comments: initialComments 
 }: InvitationDetailViewProps) {
-  const supabase = createClient()
   const [isUpdating, setIsUpdating] = useState(false)
+  
+  // Use hooks for real-time data and better state management
+  const { 
+    comments, 
+    loading: commentsLoading, 
+    moderateComment,
+    refetch: refetchComments 
+  } = useComments(invitation.id, true) // Include unapproved for admin view
+  
+  const { 
+    responses: rsvpResponses, 
+    loading: rsvpLoading,
+    refetch: refetchRsvp 
+  } = useRSVPResponses(invitation.id)
+
+  // Use initial data if hooks haven't loaded yet, then switch to real-time data
+  const displayComments = comments.length > 0 ? comments : initialComments
+  const displayRsvpResponses = rsvpResponses.length > 0 ? rsvpResponses : initialRsvpResponses
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -68,7 +86,7 @@ export default function InvitationDetailView({
   }
 
   const copyInvitationLink = () => {
-    const publicUrl = `${window.location.origin}/i/${invitation.slug}`
+    const publicUrl = `${window.location.origin}/i/${invitation.public_slug}`
     navigator.clipboard.writeText(publicUrl)
     toast({
       title: "Link copied!",
@@ -79,20 +97,18 @@ export default function InvitationDetailView({
   const handleCommentApproval = async (commentId: string, isApproved: boolean) => {
     setIsUpdating(true)
     try {
-      const { error } = await supabase
-        .from('invitation_comments')
-        .update({ is_approved: isApproved })
-        .eq('id', commentId)
+      const action = isApproved ? 'approve' : 'reject'
+      const success = await moderateComment(commentId, action)
 
-      if (error) throw error
-
-      toast({
-        title: isApproved ? "Comment approved" : "Comment rejected",
-        description: `Comment has been ${isApproved ? 'approved' : 'rejected'}.`,
-      })
-
-      // Refresh the page
-      window.location.reload()
+      if (success) {
+        toast({
+          title: isApproved ? "Comment approved" : "Comment rejected",
+          description: `Comment has been ${isApproved ? 'approved' : 'rejected'}.`,
+        })
+        // The hook will automatically refresh the data
+      } else {
+        throw new Error('Failed to moderate comment')
+      }
     } catch (error) {
       console.error('Error updating comment:', error)
       toast({
@@ -141,7 +157,7 @@ export default function InvitationDetailView({
           </Link>
           
           {invitation.status === 'published' && (
-            <Link href={`/i/${invitation.slug}`} target="_blank">
+            <Link href={`/i/${invitation.public_slug}`} target="_blank">
               <Button variant="outline" size="sm" className="flex items-center gap-2">
                 <ExternalLink className="w-4 h-4" />
                 View Public
@@ -178,7 +194,13 @@ export default function InvitationDetailView({
             <MessageCircle className="h-8 w-8 text-purple-600" />
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Comments</p>
-              <p className="text-2xl font-bold">{comments.length}</p>
+              <p className="text-2xl font-bold">
+                {commentsLoading ? (
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                ) : (
+                  displayComments.length
+                )}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -212,14 +234,19 @@ export default function InvitationDetailView({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {rsvpResponses.length === 0 ? (
+              {rsvpLoading ? (
+                <div className="text-center py-8">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-blue-600" />
+                  <p className="text-gray-500">Loading RSVP responses...</p>
+                </div>
+              ) : displayRsvpResponses.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <Users className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                   <p>No RSVP responses yet</p>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {rsvpResponses.map((response) => (
+                  {displayRsvpResponses.map((response) => (
                     <div key={response.id} className="border rounded-lg p-4">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-3">
@@ -283,18 +310,23 @@ export default function InvitationDetailView({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {comments.length === 0 ? (
+              {commentsLoading ? (
+                <div className="text-center py-8">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-purple-600" />
+                  <p className="text-gray-500">Loading comments...</p>
+                </div>
+              ) : displayComments.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <MessageCircle className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                   <p>No comments yet</p>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {comments.map((comment) => (
+                  {displayComments.map((comment) => (
                     <div key={comment.id} className="border rounded-lg p-4">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-3">
-                          <h4 className="font-medium">{comment.guest_name}</h4>
+                          <h4 className="font-medium">{comment.author_name}</h4>
                           <Badge className={comment.is_approved ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}>
                             {comment.is_approved ? 'Approved' : 'Pending'}
                           </Badge>
@@ -304,7 +336,7 @@ export default function InvitationDetailView({
                         </div>
                       </div>
                       
-                      <p className="text-gray-700 mb-3">{comment.message}</p>
+                      <p className="text-gray-700 mb-3">{comment.comment_text}</p>
                       
                       {!comment.is_approved && (
                         <div className="flex gap-2">
@@ -379,18 +411,18 @@ export default function InvitationDetailView({
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <span>Total Comments:</span>
-                      <span className="font-medium">{comments.length}</span>
+                      <span className="font-medium">{displayComments.length}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Approved Comments:</span>
                       <span className="font-medium text-green-600">
-                        {comments.filter(c => c.is_approved).length}
+                        {displayComments.filter(c => c.is_approved).length}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span>Pending Comments:</span>
                       <span className="font-medium text-yellow-600">
-                        {comments.filter(c => !c.is_approved).length}
+                        {displayComments.filter(c => !c.is_approved).length}
                       </span>
                     </div>
                   </div>
