@@ -69,7 +69,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event, session?.user?.email)
       
       if (session?.user) {
         const transformedUser = transformUser(session.user)

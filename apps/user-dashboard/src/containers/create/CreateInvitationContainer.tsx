@@ -110,6 +110,7 @@ export function CreateInvitationContainer() {
           onTemplateSelect={stepHandlers.handleTemplateSelect}
           onPackageUpgrade={showUpgradeDialog}
           onAutoFill={stepHandlers.handleAutoFill}
+          onEditorContinue={stepHandlers.handleEditorContinue}
         />
       </CreateInvitationLayout>
 

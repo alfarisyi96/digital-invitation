@@ -45,7 +45,7 @@ export const INVITATION_CATEGORIES = [
   }
 ] as const
 
-export const STEP_LABELS = ['Category', 'Details', 'Templates', 'Preview'] as const
+export const STEP_LABELS = ['Category', 'Details', 'Templates', 'Customize', 'Preview'] as const
 
 export const GOLD_PACKAGE_FEATURES = [
   'Premium template designs',

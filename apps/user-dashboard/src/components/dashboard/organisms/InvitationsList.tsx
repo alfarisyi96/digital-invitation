@@ -5,10 +5,11 @@ import type { Invitation } from '@/services/supabaseService'
 interface InvitationsListProps {
   invitations: Invitation[]
   actionLoading: string | null
-  onEdit: (id: string) => void
+  onEdit: (id: string, category: string) => void
   onPublish: (id: string) => void
   onUnpublish: (id: string) => void
   onPreview: (slugOrId: string) => void
+  onManage: (id: string) => void
   getStatusBadge: (status: string, isPublished: boolean) => string
 }
 
@@ -19,6 +20,7 @@ export function InvitationsList({
   onPublish,
   onUnpublish,
   onPreview,
+  onManage,
   getStatusBadge
 }: InvitationsListProps) {
   if (invitations.length === 0) {
@@ -49,6 +51,7 @@ export function InvitationsList({
             onPublish={onPublish}
             onUnpublish={onUnpublish}
             onPreview={onPreview}
+            onManage={onManage}
             getStatusBadge={getStatusBadge}
           />
         ))}

@@ -5,10 +5,11 @@ import type { Invitation } from '@/services/supabaseService'
 interface InvitationCardProps {
   invitation: Invitation
   actionLoading: string | null
-  onEdit: (id: string) => void
+  onEdit: (id: string, category: string) => void
   onPublish: (id: string) => void
   onUnpublish: (id: string) => void
   onPreview: (slugOrId: string) => void
+  onManage: (id: string) => void
   getStatusBadge: (status: string, isPublished: boolean) => string
 }
 
@@ -19,6 +20,7 @@ export function InvitationCard({
   onPublish, 
   onUnpublish, 
   onPreview, 
+  onManage,
   getStatusBadge 
 }: InvitationCardProps) {
   const isLoading = actionLoading === invitation.id
@@ -49,7 +51,11 @@ export function InvitationCard({
       <div className="p-4 border-b border-gray-100">
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
-            <h3 className="text-lg font-semibold text-gray-900 break-words hyphens-auto leading-tight">
+            <h3 
+              className="text-lg font-semibold text-gray-900 break-words hyphens-auto leading-tight cursor-pointer hover:text-blue-600 transition-colors duration-200"
+              onClick={() => onManage(invitation.id)}
+              title="Click to manage RSVP and comments"
+            >
               {invitation.title}
             </h3>
             {invitation.description && (
@@ -85,7 +91,7 @@ export function InvitationCard({
         <div className="flex items-center justify-between">
           <div className="flex space-x-2">
             <button
-              onClick={() => onEdit(invitation.id)}
+              onClick={() => onEdit(invitation.id, invitation.category)}
               className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               <Edit3 className="h-3 w-3 mr-1" />

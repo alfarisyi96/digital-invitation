@@ -59,7 +59,7 @@ export function useCreateInvitationFlow() {
   
   // Derived state
   const selectedTemplateData = templates.find((t: Template) => t.id === navigationState.selectedTemplate)
-  const shouldShowSaveButton = navigationState.currentStep === 4
+  const shouldShowSaveButton = navigationState.currentStep === 5
 
   // Business operations
   const invitationOperations = useInvitationCreation()
@@ -413,8 +413,10 @@ export function useCreateInvitationFlow() {
   const handleBack = () => {
     const { currentStep, setCurrentStep, goToPreviousStep } = navigationState
     
-    if (currentStep === 4) {
-      setCurrentStep(3)
+    if (currentStep === 5) {
+      setCurrentStep(4) // Go back to editor
+    } else if (currentStep === 4) {
+      setCurrentStep(3) // Go back to template selection
     } else if (currentStep > 1) {
       goToPreviousStep()
     } else {
@@ -441,6 +443,8 @@ export function useCreateInvitationFlow() {
       navigationState.setCurrentStep(3)
     } else if (step === 4 && navigationState.selectedCategory && formDataState.formData && navigationState.selectedTemplate) {
       navigationState.setCurrentStep(4)
+    } else if (step === 5 && navigationState.selectedCategory && formDataState.formData && navigationState.selectedTemplate) {
+      navigationState.setCurrentStep(5)
     }
   }
 

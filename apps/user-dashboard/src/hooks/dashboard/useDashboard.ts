@@ -27,8 +27,8 @@ export function useDashboard() {
     router.push('/create?step=1')
   }
 
-  const handleEditInvitation = (id: string) => {
-    router.push(`/create?step=1&edit=${id}`)
+  const handleEditInvitation = (id: string, category: string) => {
+    router.push(`/create?step=1&edit=${id}&category=${category}`)
   }
 
   const handlePublishInvitation = async (id: string) => {
@@ -59,6 +59,10 @@ export function useDashboard() {
       // This route would be handled within the user dashboard app for private previews
       window.open(`/preview/${slugOrId}`, '_blank')
     }
+  }
+
+  const handleManageInvitation = (id: string) => {
+    router.push(`/dashboard/invitations/${id}`)
   }
 
   const getStatusBadge = (status: string, isPublished: boolean) => {
@@ -95,6 +99,7 @@ export function useDashboard() {
     handlePublishInvitation,
     handleUnpublishInvitation,
     openInvitationPreview,
+    handleManageInvitation,
     getStatusBadge
   }
 }

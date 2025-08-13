@@ -92,8 +92,8 @@ export function TemplateSelection({
                   <TemplateCard
                     template={template}
                     isSelected={selectedTemplate === template.id}
-                    isLocked={false} // Allow selection but show visual indicators
-                    onClick={onTemplateSelect}
+                    isLocked={false} // Always allow viewing premium templates
+                    onClick={onTemplateSelect} // Always allow selection
                   />
                   {currentPackage === 'basic' && (
                     <div className="absolute top-2 right-2 z-10">
@@ -106,17 +106,17 @@ export function TemplateSelection({
                 </div>
               ))}
             </div>
-            {currentPackage === 'basic' && (
+            {currentPackage === 'basic' && goldTemplates.some(t => t.id === selectedTemplate) && (
               <div className="mt-4 p-4 bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     <Crown className="h-5 w-5 text-yellow-600 mr-2" />
                     <div>
                       <p className="text-sm font-medium text-yellow-800">
-                        Premium templates selected
+                        Premium template selected
                       </p>
                       <p className="text-xs text-yellow-600">
-                        Upgrade to Gold to create invitations with premium templates
+                        Upgrade to Gold to save invitations with premium templates
                       </p>
                     </div>
                   </div>

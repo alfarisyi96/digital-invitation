@@ -85,7 +85,7 @@ export function useStepNavigation(isEditMode = false) {
 
   // Navigate to next step
   const goToNextStep = () => {
-    if (state.currentStep < 4) {
+    if (state.currentStep < 5) {
       setCurrentStep(state.currentStep + 1)
     }
   }

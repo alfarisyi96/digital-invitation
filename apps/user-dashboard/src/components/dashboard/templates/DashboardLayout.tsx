@@ -15,10 +15,11 @@ interface DashboardLayoutProps {
   actionLoading: string | null
   onCreateInvitation: () => void
   onSearchChange: (query: string) => void
-  onEdit: (id: string) => void
+  onEdit: (id: string, category: string) => void
   onPublish: (id: string) => void
   onUnpublish: (id: string) => void
   onPreview: (slugOrId: string) => void
+  onManage: (id: string) => void
   getStatusBadge: (status: string, isPublished: boolean) => string
 }
 
@@ -35,6 +36,7 @@ export function DashboardLayout({
   onPublish,
   onUnpublish,
   onPreview,
+  onManage,
   getStatusBadge
 }: DashboardLayoutProps) {
   if (loading) {
@@ -76,6 +78,7 @@ export function DashboardLayout({
             onPublish={onPublish}
             onUnpublish={onUnpublish}
             onPreview={onPreview}
+            onManage={onManage}
             getStatusBadge={getStatusBadge}
           />
         </div>

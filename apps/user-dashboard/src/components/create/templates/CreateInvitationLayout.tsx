@@ -44,7 +44,7 @@ export function CreateInvitationLayout({
           <div className="flex items-center justify-between w-full sm:w-auto">
             <Button variant="ghost" onClick={onBack} className="flex items-center">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              {currentStep === 4 ? 'Choose Template' : 'Back'}
+              {currentStep === 5 ? 'Customize' : currentStep === 4 ? 'Choose Template' : 'Back'}
             </Button>
             
             {/* Mobile Edit Mode Title */}

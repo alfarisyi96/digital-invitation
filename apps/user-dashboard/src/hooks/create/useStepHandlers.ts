@@ -35,7 +35,6 @@ export function useStepHandlers({
 }: StepHandlersProps) {
 
   const handleCategorySelect = (category: InvitationType) => {
-    console.log('🎯 Category selected:', category)
     // Use atomic update if available, otherwise fallback to individual setters
     if (updateState) {
       updateState({ selectedCategory: category, currentStep: 2 })
@@ -46,7 +45,6 @@ export function useStepHandlers({
   }
 
   const handleSuperQuickStart = () => {
-    console.log('🚀 Super quick start triggered')
     setSelectedCategory('wedding')
     updateFormData(SAMPLE_WEDDING_DATA)
     
@@ -70,7 +68,7 @@ export function useStepHandlers({
         groom_mother: SAMPLE_WEDDING_DATA.groom_mother || '',
       }
       
-      console.log('📝 Populating form with sample data:', formValues)
+      
       form.reset(formValues)
     }
     
@@ -78,7 +76,6 @@ export function useStepHandlers({
   }
 
   const handleAutoFill = () => {
-    console.log('🎯 Auto-fill for testing triggered')
     updateFormData(SAMPLE_WEDDING_DATA)
     
     // Populate the React Hook Form
@@ -104,10 +101,6 @@ export function useStepHandlers({
         gift_accounts: SAMPLE_WEDDING_DATA.gift_accounts || [],
       }
       
-      console.log('✅ Auto-fill form completed:', formValues)
-      console.log('🔍 Events data:', SAMPLE_WEDDING_DATA.events)
-      console.log('🔍 Gift accounts data:', SAMPLE_WEDDING_DATA.gift_accounts)
-      
       // Use reset to populate all fields at once
       form.reset(formValues)
       
@@ -122,7 +115,6 @@ export function useStepHandlers({
   }
 
   const handleFormSubmit = async (data: WeddingFormValues) => {
-    console.log('📝 Form submitted:', data)
     if (!selectedCategory) {
       console.warn('❌ No category selected for form submit')
       return
@@ -148,23 +140,20 @@ export function useStepHandlers({
       gift_accounts: data.gift_accounts,
     }
 
-    console.log('✅ Form data processed:', localFormData)
     updateFormData(localFormData)
     setCurrentStep(3)
   }
 
   const handleTemplateSelect = (templateId: string) => {
     setSelectedTemplate(templateId)
-    setCurrentStep(4)
+    setCurrentStep(4) // Go to editor step
+  }
+
+  const handleEditorContinue = () => {
+    setCurrentStep(5) // Go to final preview step
   }
 
   const handleSaveInvitation = async () => {
-    console.log('💾 Save invitation triggered:', {
-      selectedTemplate,
-      formData,
-      selectedCategory,
-      hasTemplate: !!templates.find((t: Template) => t.id === selectedTemplate)
-    })
     
     if (!selectedTemplate || !formData || !selectedCategory) {
       console.warn('❌ Missing required data for save:', {
@@ -181,9 +170,19 @@ export function useStepHandlers({
       return
     }
 
-    console.log('✅ All data available, proceeding with save')
+    // 🔒 Package tier validation
+    if (template.is_premium && selectedPackage === 'basic') {
+      console.warn('❌ Package tier validation failed:', {
+        templateTier: 'premium',
+        userPackage: selectedPackage,
+        templateName: template.name
+      })
+      
+      // Show upgrade modal instead of saving
+      showUpgradeDialog()
+      return
+    }
 
-    console.log('🚀 Calling onCreateInvitation')
     await onCreateInvitation()
   }
 
@@ -192,6 +191,7 @@ export function useStepHandlers({
     handleSuperQuickStart,
     handleFormSubmit,
     handleTemplateSelect,
+    handleEditorContinue,
     handleSaveInvitation,
     handleAutoFill
   }

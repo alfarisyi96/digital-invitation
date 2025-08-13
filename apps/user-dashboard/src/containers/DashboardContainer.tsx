@@ -17,6 +17,7 @@ export function DashboardContainer() {
     handlePublishInvitation,
     handleUnpublishInvitation,
     openInvitationPreview,
+    handleManageInvitation,
     getStatusBadge
   } = useDashboard()
 
@@ -36,6 +37,7 @@ export function DashboardContainer() {
       onPublish={handlePublishInvitation}
       onUnpublish={handleUnpublishInvitation}
       onPreview={openInvitationPreview}
+      onManage={handleManageInvitation}
       getStatusBadge={getStatusBadge}
     />
   )

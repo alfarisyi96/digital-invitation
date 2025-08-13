@@ -16,6 +16,8 @@ export function useStepRenderer({ currentStep, selectedCategory }: StepRenderPro
       case 3:
         return 'TemplateSelection'
       case 4:
+        return 'TemplateEditor'
+      case 5:
         return 'InvitationPreview'
       default:
         return null
@@ -23,7 +25,7 @@ export function useStepRenderer({ currentStep, selectedCategory }: StepRenderPro
   }
 
   const shouldShowForm = currentStep === 2 && selectedCategory === 'wedding'
-  const shouldShowSaveButton = currentStep === 4
+  const shouldShowSaveButton = currentStep === 5
 
   return { 
     getStepComponent,

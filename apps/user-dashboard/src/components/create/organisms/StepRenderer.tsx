@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button'
 import { CategorySelection } from '@/components/create/organisms/CategorySelection'
 import { WeddingForm } from '@/components/create/organisms/WeddingForm'
 import { TemplateSelection } from '@/components/create/organisms/TemplateSelection'
+import { TemplateEditor } from '@/components/create/organisms/TemplateEditor'
 import { InvitationPreview } from '@/components/create/organisms/InvitationPreview'
 import { UseFormReturn } from 'react-hook-form'
 import { WeddingFormValues } from '@/hooks/create/useWeddingForm'
@@ -25,6 +26,8 @@ interface StepRendererProps {
   onTemplateSelect: (templateId: string) => void
   onPackageUpgrade: () => void
   onAutoFill?: () => void
+  // New editor props
+  onEditorContinue?: () => void
 }
 
 /**
@@ -48,7 +51,8 @@ export function StepRenderer({
   onFormSubmit,
   onTemplateSelect,
   onPackageUpgrade,
-  onAutoFill
+  onAutoFill,
+  onEditorContinue
 }: StepRendererProps) {
   
   switch (currentStep) {
@@ -99,6 +103,17 @@ export function StepRenderer({
       )
 
     case 4:
+      return (
+        <TemplateEditor
+          template={selectedTemplateData}
+          formData={formData}
+          currentPackage={selectedPackage}
+          category={selectedCategory || ''}
+          onContinue={onEditorContinue}
+        />
+      )
+
+    case 5:
       return (
         <InvitationPreview
           template={selectedTemplateData}

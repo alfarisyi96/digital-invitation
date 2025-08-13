@@ -40,7 +40,6 @@ export function GiftDetailsForm({ gifts, onChange }: GiftDetailsFormProps) {
   const handleQRCodeUpload = async (index: number, file: File) => {
     try {
       // TODO: Implement Cloudflare Images upload
-      console.log('Uploading QR code for gift', index, file)
       // const cloudflareImageId = await uploadToCloudflare(file)
       // updateGift(index, 'qr_code', cloudflareImageId)
     } catch (error) {

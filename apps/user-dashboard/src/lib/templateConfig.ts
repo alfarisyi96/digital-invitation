@@ -35,27 +35,24 @@ export const GLOBAL_FONT_OPTIONS: FontOption[] = [
 ]
 
 // Template resolver - maps slug to component import
-// TODO: Create actual template components
 export const TEMPLATE_COMPONENTS = {
-  // 'sunda-traditional': () => import('@/templates/wedding/SundaTraditional'),
-  // 'modern-minimalist': () => import('@/templates/wedding/ModernMinimalist'),
-  // 'royal-wedding': () => import('@/templates/wedding/RoyalWedding'),
-  // 'vibrant-birthday': () => import('@/templates/birthday/VibrantBirthday'),
-  // 'professional-event': () => import('@/templates/business/ProfessionalEvent')
+  'sunda-traditional': () => import('@/components/templates/wedding/SundaTraditional'),
+  'modern-minimalist': () => import('@/components/templates/wedding/ModernMinimalist'),
+  'floral-romantic': () => import('@/components/templates/FloralRomantic'),
+  'rustic-charm': () => import('@/components/templates/RusticCharm'),
+  // Add more templates here as they're created
 } as const
 
 export type TemplateSlug = keyof typeof TEMPLATE_COMPONENTS
 
 // Template loader utility
 export const loadTemplate = async (templateSlug: string) => {
-  // TODO: Implement when template components are created
-  throw new Error(`Template not yet implemented: ${templateSlug}`)
-  
-  // const componentLoader = TEMPLATE_COMPONENTS[templateSlug as TemplateSlug]
-  // if (!componentLoader) {
-  //   throw new Error(`Template not found: ${templateSlug}`)
-  // }
-  // return await componentLoader()
+  const componentLoader = TEMPLATE_COMPONENTS[templateSlug as TemplateSlug]
+  if (!componentLoader) {
+    throw new Error(`Template not found: ${templateSlug}`)
+  }
+  const module = await componentLoader()
+  return (module as any).default || module
 }
 
 // Default customization for new invitations

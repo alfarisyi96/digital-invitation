@@ -67,7 +67,45 @@ serve(async (req) => {
       custom_data_keys: Object.keys(custom_data)
     })
 
-    // Step 1: Check if user can create invitation (package limits)
+    // Step 1: Ensure user profile exists - create if missing
+    const { data: existingProfile, error: profileCheckError } = await supabaseClient
+      .from('user_profiles')
+      .select('*')
+      .eq('user_id', user.id)
+      .single()
+
+    if (profileCheckError && profileCheckError.code === 'PGRST116') {
+      // User profile doesn't exist, create it
+      console.log('Creating missing user profile for:', user.id)
+      
+      const { error: createProfileError } = await supabaseClient
+        .from('user_profiles')
+        .insert({
+          user_id: user.id,
+          email: user.email,
+          full_name: user.user_metadata?.full_name || user.user_metadata?.name || null,
+          avatar_url: user.user_metadata?.avatar_url || null,
+          current_package: 'basic',
+          used_invites: 0,
+          is_premium_active: false
+        })
+
+      if (createProfileError) {
+        console.error('Failed to create user profile:', createProfileError)
+        return new Response(
+          JSON.stringify({ 
+            success: false,
+            error: 'Failed to create user profile',
+            details: createProfileError
+          }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    } else if (profileCheckError) {
+      throw profileCheckError
+    }
+
+    // Step 2: Check if user can create invitation (package limits)
     const { data: limitCheck, error: limitError } = await supabaseClient
       .rpc('can_user_create_invitation', { user_uuid: user.id })
 
@@ -84,7 +122,7 @@ serve(async (req) => {
       )
     }
 
-    // Step 2: Validate template access (package permissions)
+    // Step 3: Validate template access (package permissions)
     const { data: templates, error: templateError } = await supabaseClient
       .rpc('get_user_accessible_templates', { user_uuid: user.id })
 
@@ -120,7 +158,7 @@ serve(async (req) => {
       )
     }
 
-    // Step 3: Create the invitation
+    // Step 4: Create the invitation
     const { data: newInvitation, error: createError } = await supabaseClient
       .from('invites')
       .insert({
@@ -138,7 +176,7 @@ serve(async (req) => {
 
     if (createError) throw createError
 
-    // Step 4: Increment user invitation count
+    // Step 5: Increment user invitation count
     const { data: incrementResult, error: incrementError } = await supabaseClient
       .rpc('increment_user_invitations', { user_uuid: user.id })
 
@@ -152,7 +190,7 @@ serve(async (req) => {
       throw incrementError
     }
 
-    // Step 5: Reset package to "basic" after successful premium invitation creation
+    // Step 6: Reset package to "basic" after successful premium invitation creation
     // This implements Model 1: One-time purchase per invitation
     const { data: resetResult, error: resetError } = await supabaseClient
       .rpc('reset_user_package_to_basic', { user_uuid: user.id })

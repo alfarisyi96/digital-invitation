@@ -1,0 +1,27 @@
+on editor sidebar we have reset button only, no draft and save, actual save to database will be on the last step like current we have, for local save should be on every change made, for example, user click text and click 'check' icon on right bottom corner then it saved to local storage (our cache mechanism) same goes with images
+
+typography settings only for font-family and color, user cant change font-size, font-weight because hard to maintain, each section can have different font size and weight
+
+color customization has 3 colors (primary, secondary, accent) we have color combination suggestion for each templates, let say we have "sunda" template, we have 3 combinations color sugestion, every template theme can have different color combinations sugestion
+
+what comes in your mind for this setup in templates and invites data in our database?
+
+do we have categories table? I dont think so
+
+use category as varchar for now, make sure "invites" has category field as well
+
+make sure not breaking current flow, becareful edit something on database
+
+how to tied this template data with templates code? by slug?
+
+no need font_options on each template, font options will be general
+
+for template customization edit text should edit "details" data, details data work for every templates tier
+
+adjustment on details form:
+
+please make "Event Details" can be multiple, we usualy have "akad" and "resepsi" so user can fill each event with different values
+add Gift section (Bank, Account Number, Name) can be multiple
+additional on premium templates are: rsvp, comments, and images features
+
+they are 4 images type, bride, groom, hero and gallery, gallery contains multiple images
