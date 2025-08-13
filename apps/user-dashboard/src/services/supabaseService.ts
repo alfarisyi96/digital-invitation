@@ -368,6 +368,84 @@ class SupabaseService {
     }
   }
 
+  async getInvitationById(id: string): Promise<Invitation | null> {
+    const { data, error } = await this.supabase
+      .from('invites')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (error) {
+      console.error('Error fetching invitation:', error)
+      return null
+    }
+
+    return data
+  }
+
+  async getInvitationDetails(id: string): Promise<{
+    invitation: any
+    rsvpSummary: any
+    rsvpResponses: any[]
+    comments: any[]
+  } | null> {
+    try {
+      // Get invitation with template info
+      const { data: invitation, error: inviteError } = await this.supabase
+        .from('invites')
+        .select(`
+          *,
+          templates (
+            id,
+            name,
+            category,
+            tier,
+            slug,
+            template_data,
+            thumbnail_url,
+            required_package,
+            features
+          )
+        `)
+        .eq('id', id)
+        .single()
+
+      if (inviteError || !invitation) {
+        console.error('Error fetching invitation:', inviteError)
+        return null
+      }
+
+      // Get RSVP summary using RPC function
+      const { data: rsvpSummary } = await this.supabase.rpc('get_rsvp_summary', {
+        invitation_id: id
+      })
+
+      // Get RSVP responses
+      const { data: rsvpResponses } = await this.supabase
+        .from('rsvp_responses')
+        .select('*')
+        .eq('invitation_id', id)
+        .order('created_at', { ascending: false })
+
+      // Get comments (including unapproved for admin view)
+      const { data: comments } = await this.supabase
+        .from('invitation_comments')
+        .select('*')
+        .eq('invitation_id', id)
+        .order('created_at', { ascending: false })
+
+      return {
+        invitation,
+        rsvpSummary,
+        rsvpResponses: rsvpResponses || [],
+        comments: comments || []
+      }
+    } catch (error) {
+      console.error('Error fetching invitation details:', error)
+      return null
+    }
+  }
+
   async updateInvitation(id: string, updates: Partial<Invitation>): Promise<Invitation | null> {
     const { data, error } = await this.supabase
       .from('invites')
@@ -785,6 +863,242 @@ class SupabaseService {
       event_date: details.event_date,
       location: details.location,
       address: details.address
+    }
+  }
+
+  // Comments methods (moved from API routes)
+  async getComments(invitationId: string, includeUnapproved: boolean = false) {
+    let query = this.supabase
+      .from('invitation_comments')
+      .select('*')
+      .eq('invite_id', invitationId)
+      .order('created_at', { ascending: false })
+
+    if (!includeUnapproved) {
+      query = query.eq('is_approved', true)
+    }
+
+    const { data: comments, error: commentsError } = await query
+
+    if (commentsError) {
+      console.error('Comments fetch error:', commentsError)
+      return { comments: [], settings: null, error: commentsError.message }
+    }
+
+    // Get comment settings
+    const { data: settings, error: settingsError } = await this.supabase
+      .from('comment_settings')
+      .select('*')
+      .eq('invite_id', invitationId)
+      .single()
+
+    if (settingsError && settingsError.code !== 'PGRST116') {
+      console.error('Comment settings error:', settingsError)
+    }
+
+    return {
+      comments: comments || [],
+      settings: settings || {
+        is_enabled: true,
+        require_approval: false,
+        max_comment_length: 500,
+        require_email: false,
+        welcome_message: 'Share your thoughts and well wishes!'
+      },
+      error: null
+    }
+  }
+
+  async submitComment(commentData: {
+    invitationId: string
+    authorName: string
+    commentText: string
+    authorEmail?: string
+  }) {
+    const { invitationId, authorName, commentText, authorEmail } = commentData
+
+    // Validate required fields
+    if (!invitationId || !commentText?.trim()) {
+      return { success: false, error: 'Missing required fields' }
+    }
+
+    // Get comment settings
+    const { data: settings } = await this.supabase
+      .from('comment_settings')
+      .select('require_approval, max_comment_length, require_email')
+      .eq('invite_id', invitationId)
+      .single()
+
+    const requireModeration = settings?.require_approval ?? false
+    const maxLength = settings?.max_comment_length ?? 500
+    const requireEmail = settings?.require_email ?? false
+
+    // Validate comment length
+    if (commentText.length > maxLength) {
+      return { 
+        success: false, 
+        error: `Comment must be ${maxLength} characters or less` 
+      }
+    }
+
+    // Validate email if required
+    if (requireEmail && !authorEmail?.trim()) {
+      return { success: false, error: 'Email is required' }
+    }
+
+    // Insert the comment
+    const { data, error } = await this.supabase
+      .from('invitation_comments')
+      .insert({
+        invite_id: invitationId,
+        author_name: authorName?.trim() || 'Anonymous',
+        author_email: authorEmail?.trim() || null,
+        comment_text: commentText.trim(),
+        is_approved: !requireModeration
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Comment submission error:', error)
+      return { success: false, error: error.message }
+    }
+
+    return {
+      success: true,
+      data: {
+        commentId: data.id,
+        message: requireModeration 
+          ? 'Your comment will appear after approval'
+          : 'Comment submitted successfully',
+        requiresModeration: requireModeration
+      }
+    }
+  }
+
+  async moderateComment(commentId: string, action: 'approve' | 'reject' | 'delete') {
+    if (action === 'delete') {
+      const { error } = await this.supabase
+        .from('invitation_comments')
+        .delete()
+        .eq('id', commentId)
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+    } else {
+      const updateData = action === 'approve' 
+        ? { is_approved: true } 
+        : { is_approved: false }
+
+      const { error } = await this.supabase
+        .from('invitation_comments')
+        .update(updateData)
+        .eq('id', commentId)
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+    }
+
+    return { success: true, message: `Comment ${action}d successfully` }
+  }
+
+  // RSVP methods (moved from API routes)
+  async getRSVPData(invitationId: string) {
+    // Get RSVP summary using RPC function
+    const { data: summary, error: summaryError } = await this.supabase.rpc('get_rsvp_summary', {
+      invitation_id: invitationId
+    })
+
+    if (summaryError) {
+      console.error('RSVP summary error:', summaryError)
+      return { summary: null, settings: null, error: summaryError.message }
+    }
+
+    // Get RSVP settings
+    const { data: settings, error: settingsError } = await this.supabase
+      .from('rsvp_settings')
+      .select('*')
+      .eq('invite_id', invitationId)
+      .single()
+
+    if (settingsError && settingsError.code !== 'PGRST116') {
+      console.error('RSVP settings error:', settingsError)
+    }
+
+    return {
+      summary,
+      settings: settings || {
+        is_enabled: true,
+        max_guests_per_response: 4,
+        require_email: false,
+        require_phone: false,
+        collect_dietary_restrictions: true,
+        collect_special_requests: true,
+        allow_guest_message: true
+      },
+      error: null
+    }
+  }
+
+  async submitRSVP(rsvpData: {
+    invitationId: string
+    guestName: string
+    guestEmail?: string
+    guestPhone?: string
+    attendanceStatus: 'attending' | 'not_attending' | 'maybe'
+    numberOfGuests?: number
+    dietaryRestrictions?: string
+    specialRequests?: string
+    message?: string
+  }) {
+    const {
+      invitationId,
+      guestName,
+      guestEmail,
+      guestPhone,
+      attendanceStatus,
+      numberOfGuests,
+      dietaryRestrictions,
+      specialRequests,
+      message
+    } = rsvpData
+
+    // Validate required fields
+    if (!invitationId || !guestName || !attendanceStatus) {
+      return { success: false, error: 'Missing required fields' }
+    }
+
+    // Call the submit_rsvp function
+    const { data, error } = await this.supabase.rpc('submit_rsvp', {
+      invitation_id: invitationId,
+      guest_name_param: guestName,
+      guest_email_param: guestEmail || null,
+      guest_phone_param: guestPhone || null,
+      attendance_status_param: attendanceStatus,
+      number_of_guests_param: numberOfGuests || 1,
+      dietary_restrictions_param: dietaryRestrictions || null,
+      special_requests_param: specialRequests || null,
+      message_param: message || null
+    })
+
+    if (error) {
+      console.error('RSVP submission error:', error)
+      return { success: false, error: error.message }
+    }
+
+    // Check if the function returned an error
+    if (!data.success) {
+      return { success: false, error: data.error }
+    }
+
+    return {
+      success: true,
+      data: {
+        responseId: data.response_id,
+        message: data.message
+      }
     }
   }
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { withAuth } from '@/contexts/SupabaseUserContext'
-import { DashboardContainer } from '@/containers/DashboardContainer'
+import { DashboardContainer } from '@/containers/dashboard/DashboardContainer'
 
 function DashboardPage() {
   return <DashboardContainer />

@@ -133,7 +133,7 @@ export default function InvitationDetailView({
             </Button>
           )}
           
-          <Link href={`/dashboard/create?edit=${invitation.id}`}>
+          <Link href={`/create?edit=${invitation.id}&category=${invitation.category}`}>
             <Button variant="outline" size="sm" className="flex items-center gap-2">
               <Edit className="w-4 h-4" />
               Edit

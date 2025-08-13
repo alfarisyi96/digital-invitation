@@ -1,6 +1,6 @@
 import React from 'react'
-import { useDashboard } from '../hooks/dashboard/useDashboard'
-import { DashboardLayout } from '../components/dashboard/templates/DashboardLayout'
+import { useDashboard } from '../../hooks/dashboard/useDashboard'
+import { DashboardLayout } from '../../components/dashboard/templates/DashboardLayout'
 
 export function DashboardContainer() {
   const {
