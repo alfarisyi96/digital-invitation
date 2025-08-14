@@ -36,7 +36,7 @@ export interface InvitationData {
     name: string
     slug: string
     tier: 'basic' | 'premium'
-    component_path: string
+    component_path?: string
   }
   
   // Settings
@@ -70,7 +70,7 @@ export interface TemplateMetadata {
   name: string
   slug: string
   tier: 'basic' | 'premium'
-  component_path: string
+  component_path?: string
   features: string[]
   thumbnail_url: string
   ornament_set: string

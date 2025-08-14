@@ -57,7 +57,6 @@ export default async function PublicInvitationPage({ params }: PageProps) {
         name,
         slug,
         tier,
-        component_path,
         features
       )
     `)
@@ -108,8 +107,7 @@ export default async function PublicInvitationPage({ params }: PageProps) {
       id: invitation.templates.id,
       name: invitation.templates.name,
       slug: invitation.templates.slug,
-      tier: invitation.templates.tier,
-      component_path: invitation.templates.component_path
+      tier: invitation.templates.tier
     },
     
     // Settings
