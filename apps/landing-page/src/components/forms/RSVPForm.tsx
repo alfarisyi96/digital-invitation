@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { TurnstileWidget } from '../security/TurnstileWidget'
 
 export interface RSVPSettings {
   is_enabled: boolean
@@ -67,6 +68,7 @@ export function RSVPForm({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
 
   // Default settings if none provided
   const defaultSettings: RSVPSettings = {
@@ -143,7 +145,7 @@ export function RSVPForm({
 
     setIsSubmitting(true)
     try {
-      await onSubmit(formData)
+      await onSubmit({ ...formData, turnstile_token: captchaToken } as any)
       setIsSubmitted(true)
     } catch (error) {
       console.error('RSVP submission error:', error)
@@ -239,7 +241,7 @@ export function RSVPForm({
 
         {/* Email */}
         <div className="space-y-2">
-          <label htmlFor="guest_email" className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+          <label htmlFor="guest_email" className="flex items-center gap-2 text-sm font-medium text-gray-700">
             📧 Email {activeSettings.require_email && '*'}
           </label>
           <input
@@ -257,7 +259,7 @@ export function RSVPForm({
 
         {/* Phone */}
         <div className="space-y-2">
-          <label htmlFor="guest_phone" className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+          <label htmlFor="guest_phone" className="flex items-center gap-2 text-sm font-medium text-gray-700">
             📱 Phone {activeSettings.require_phone && '*'}
           </label>
           <input
@@ -316,7 +318,7 @@ export function RSVPForm({
         {/* Number of Guests - only show if attending */}
         {formData.attendance_status === 'attending' && (
           <div className="space-y-2">
-            <label htmlFor="number_of_guests" className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+            <label htmlFor="number_of_guests" className="flex items-center gap-2 text-sm font-medium text-gray-700">
               👥 Number of Guests (including yourself) *
             </label>
             <select
@@ -455,6 +457,11 @@ export function RSVPForm({
             />
           </div>
         )}
+
+        {/* Turnstile Captcha */}
+        <div className="pt-2">
+          <TurnstileWidget onToken={setCaptchaToken} />
+        </div>
 
         {/* Submit Button */}
         <div className="pt-4">

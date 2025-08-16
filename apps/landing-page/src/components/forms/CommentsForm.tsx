@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { TurnstileWidget } from '../security/TurnstileWidget'
 
 interface Comment {
   id: string
@@ -24,6 +25,7 @@ export function CommentsForm({ invitationId, onSubmit, onLoadComments, className
     author_email: '',
     comment_text: ''
   })
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -51,7 +53,8 @@ export function CommentsForm({ invitationId, onSubmit, onLoadComments, className
       setIsSubmitting(true)
       await onSubmit({
         ...formData,
-        invitation_id: invitationId
+        invitation_id: invitationId,
+        turnstile_token: captchaToken
       })
       
       // Reset form
@@ -132,11 +135,16 @@ export function CommentsForm({ invitationId, onSubmit, onLoadComments, className
           />
         </div>
 
+        {/* Turnstile Captcha */}
+        <div className="flex justify-center">
+          <TurnstileWidget onToken={setCaptchaToken} />
+        </div>
+
         <button
           type="submit"
           disabled={isSubmitting || !formData.author_name || !formData.comment_text}
           className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
+  >
           {isSubmitting ? 'Submitting...' : 'Submit Message'}
         </button>
       </form>

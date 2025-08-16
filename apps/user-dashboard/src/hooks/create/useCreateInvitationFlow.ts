@@ -73,9 +73,9 @@ export function useCreateInvitationFlow() {
 
   // Sync form data with form state (for auto-fill functionality)
   useEffect(() => {
-    if (formDataState.formData && !editModeState.isEditMode) {
+  if (formDataState.formData && !editModeState.isEditMode) {
       const formValues = {
-        title: 'Wedding Invitation',
+    title: formDataState.formData.title || 'Wedding Invitation',
         bride_full_name: formDataState.formData.bride_full_name || '',
         bride_nickname: formDataState.formData.bride_nickname || '',
         groom_full_name: formDataState.formData.groom_full_name || '',

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '../../../lib/supabase/server'
+import { getClientIp, rateLimit, verifyTurnstile } from '../../../lib/security'
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,13 +10,34 @@ export async function POST(request: NextRequest) {
     const {
       invitation_id,
       guest_name,
-      message
+  message,
+  turnstile_token
     } = body
 
     // Validate required fields
     if (!invitation_id || !guest_name || !message) {
       return NextResponse.json(
         { error: 'Missing required fields' },
+        { status: 400 }
+      )
+    }
+
+    // Basic rate limit: per IP+invite, 10 comments per 5 minutes
+    const ip = getClientIp(request as unknown as Request)
+    const rlKey = `comments:${invitation_id}:${ip || 'unknown'}`
+    const rl = await rateLimit({ key: rlKey, limit: 10, window: 300 })
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again later.' },
+        { status: 429, headers: { 'Retry-After': Math.ceil((rl.reset - Date.now()) / 1000).toString() } }
+      )
+    }
+
+    // Turnstile verification (if configured)
+    const captchaOk = await verifyTurnstile(turnstile_token, ip)
+    if (!captchaOk) {
+      return NextResponse.json(
+        { error: 'Captcha verification failed' },
         { status: 400 }
       )
     }

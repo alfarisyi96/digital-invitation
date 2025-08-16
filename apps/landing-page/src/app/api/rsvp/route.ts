@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createPublicClient } from '../../../lib/supabase/public'
+import { getClientIp, rateLimit, verifyTurnstile } from '../../../lib/security'
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,13 +11,34 @@ export async function POST(request: NextRequest) {
       invitation_id,
       guest_name,
       attendance_status,
-      number_of_guests
+  number_of_guests,
+  turnstile_token
     } = body
 
     // Validate required fields
     if (!invitation_id || !guest_name || !attendance_status) {
       return NextResponse.json(
         { error: 'Missing required fields' },
+        { status: 400 }
+      )
+    }
+
+    // Basic rate limit: per IP+invite, 8 RSVPs per 10 minutes
+    const ip = getClientIp(request as unknown as Request)
+    const rlKey = `rsvp:${invitation_id}:${ip || 'unknown'}`
+    const rl = await rateLimit({ key: rlKey, limit: 8, window: 600 })
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again later.' },
+        { status: 429, headers: { 'Retry-After': Math.ceil((rl.reset - Date.now()) / 1000).toString() } }
+      )
+    }
+
+    // Turnstile verification (if configured)
+    const captchaOk = await verifyTurnstile(turnstile_token, ip)
+    if (!captchaOk) {
+      return NextResponse.json(
+        { error: 'Captcha verification failed' },
         { status: 400 }
       )
     }
