@@ -94,6 +94,32 @@ export default function InvitationDetailView({
     })
   }
 
+  const handleCommentToggle = async (commentId: string) => {
+    setIsUpdating(true)
+    try {
+      const success = await moderateComment(commentId, 'toggle')
+
+      if (success) {
+        toast({
+          title: "Comment status updated",
+          description: "Comment approval status has been toggled.",
+        })
+        // The hook will automatically refresh the data
+      } else {
+        throw new Error('Failed to toggle comment status')
+      }
+    } catch (error) {
+      console.error('Error toggling comment:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update comment status.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
   const handleCommentApproval = async (commentId: string, isApproved: boolean) => {
     setIsUpdating(true)
     try {
@@ -338,29 +364,29 @@ export default function InvitationDetailView({
                       
                       <p className="text-gray-700 mb-3">{comment.comment_text}</p>
                       
-                      {!comment.is_approved && (
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => handleCommentApproval(comment.id, true)}
-                            disabled={isUpdating}
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            <CheckCircle className="w-4 h-4 mr-1" />
-                            Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleCommentApproval(comment.id, false)}
-                            disabled={isUpdating}
-                            className="text-red-600 border-red-300 hover:bg-red-50"
-                          >
-                            <XCircle className="w-4 h-4 mr-1" />
-                            Reject
-                          </Button>
-                        </div>
-                      )}
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => handleCommentToggle(comment.id)}
+                          disabled={isUpdating}
+                          className={comment.is_approved 
+                            ? "bg-yellow-600 hover:bg-yellow-700 text-white" 
+                            : "bg-green-600 hover:bg-green-700"
+                          }
+                        >
+                          {comment.is_approved ? (
+                            <>
+                              <XCircle className="w-4 h-4 mr-1" />
+                              Set to Pending
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="w-4 h-4 mr-1" />
+                              Approve
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>

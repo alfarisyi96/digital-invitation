@@ -1,5 +1,8 @@
 import React from 'react'
 
+export { RSVPSection } from './RSVPSection'
+export { CommentsSection } from './CommentsSection'
+
 interface SectionProps {
   name: string
   className?: string

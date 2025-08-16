@@ -1,6 +1,6 @@
 import React from 'react'
 import { TemplateProps } from '../../types'
-import { Section, EditableText, Ornament } from '../../components/shared'
+import { Section, EditableText, Ornament, RSVPSection, CommentsSection } from '../../components/shared'
 import { ornaments } from './ornaments'
 
 export default function SimpleClassicTemplate({ invitation, isEditable = false }: TemplateProps) {
@@ -141,7 +141,7 @@ export default function SimpleClassicTemplate({ invitation, isEditable = false }
         <Ornament type="divider" src={ornaments.divider} />
 
         {/* Closing Message */}
-        <Section name="closing" className="text-center">
+        <Section name="closing" className="text-center mb-12">
           <p className="font-serif text-lg md:text-xl text-gray-700 italic">
             We look forward to celebrating with you
           </p>
@@ -149,6 +149,26 @@ export default function SimpleClassicTemplate({ invitation, isEditable = false }
             {bride_nickname} & {groom_nickname}
           </div>
         </Section>
+
+        {/* RSVP Section */}
+        {!isEditable && (
+          <>
+            <Ornament type="divider" src={ornaments.divider} />
+            <Section name="rsvp" className="mb-12">
+              <RSVPSection invitationId={invitation.id} />
+            </Section>
+          </>
+        )}
+
+        {/* Comments Section */}
+        {!isEditable && (
+          <>
+            <Ornament type="divider" src={ornaments.divider} />
+            <Section name="comments" className="mb-12">
+              <CommentsSection invitationId={invitation.id} />
+            </Section>
+          </>
+        )}
       </div>
     </div>
   )

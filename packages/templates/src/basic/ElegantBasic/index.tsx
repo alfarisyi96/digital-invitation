@@ -1,6 +1,6 @@
 import React from 'react'
 import { TemplateProps } from '../../types'
-import { Section, EditableText, Ornament } from '../../components/shared'
+import { Section, EditableText, Ornament, RSVPSection, CommentsSection } from '../../components/shared'
 import { ornaments } from './ornaments'
 
 export default function ElegantBasicTemplate({ invitation, isEditable = false }: TemplateProps) {
@@ -152,6 +152,22 @@ export default function ElegantBasicTemplate({ invitation, isEditable = false }:
             {bride_nickname} & {groom_nickname}
           </div>
         </Section>
+
+        {/* RSVP Section */}
+        {!isEditable && (
+          <Section name="rsvp" className="mt-16">
+            <Ornament type="divider" src={ornaments.dividerFloral} className="mb-8" />
+            <RSVPSection invitationId={invitation.id} />
+          </Section>
+        )}
+
+        {/* Comments Section */}
+        {!isEditable && (
+          <Section name="comments" className="mt-16">
+            <Ornament type="divider" src={ornaments.dividerFloral} className="mb-8" />
+            <CommentsSection invitationId={invitation.id} />
+          </Section>
+        )}
       </div>
     </div>
   )

@@ -209,8 +209,8 @@ export function useComments(invitationId?: string, includeUnapproved: boolean = 
     }
   }
 
-  // Moderate a comment (approve/reject/delete)
-  const moderateComment = async (commentId: string, action: 'approve' | 'reject' | 'delete'): Promise<boolean> => {
+  // Moderate a comment (approve/reject/delete/toggle)
+  const moderateComment = async (commentId: string, action: 'approve' | 'reject' | 'delete' | 'toggle'): Promise<boolean> => {
     try {
       setError(null)
 
@@ -226,13 +226,29 @@ export function useComments(invitationId?: string, includeUnapproved: boolean = 
       } else {
         let updateData: any = {}
 
-        switch (action) {
-          case 'approve':
-            updateData = { is_approved: true }
-            break
-          case 'reject':
-            updateData = { is_approved: false }
-            break
+        if (action === 'toggle') {
+          // First get current status
+          const { data: currentComment, error: fetchError } = await supabase
+            .from('invitation_comments')
+            .select('is_approved')
+            .eq('id', commentId)
+            .single()
+
+          if (fetchError) {
+            throw new Error(fetchError.message)
+          }
+
+          // Toggle the approval status
+          updateData = { is_approved: !currentComment.is_approved }
+        } else {
+          switch (action) {
+            case 'approve':
+              updateData = { is_approved: true }
+              break
+            case 'reject':
+              updateData = { is_approved: false }
+              break
+          }
         }
 
         const { error } = await supabase

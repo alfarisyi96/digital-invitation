@@ -967,7 +967,7 @@ class SupabaseService {
     }
   }
 
-  async moderateComment(commentId: string, action: 'approve' | 'reject' | 'delete') {
+  async moderateComment(commentId: string, action: 'approve' | 'reject' | 'delete' | 'toggle') {
     if (action === 'delete') {
       const { error } = await this.supabase
         .from('invitation_comments')
@@ -978,9 +978,27 @@ class SupabaseService {
         return { success: false, error: error.message }
       }
     } else {
-      const updateData = action === 'approve' 
-        ? { is_approved: true } 
-        : { is_approved: false }
+      let updateData: any = {}
+
+      if (action === 'toggle') {
+        // First get current status
+        const { data: currentComment, error: fetchError } = await this.supabase
+          .from('invitation_comments')
+          .select('is_approved')
+          .eq('id', commentId)
+          .single()
+
+        if (fetchError) {
+          return { success: false, error: fetchError.message }
+        }
+
+        // Toggle the approval status
+        updateData = { is_approved: !currentComment.is_approved }
+      } else {
+        updateData = action === 'approve' 
+          ? { is_approved: true } 
+          : { is_approved: false }
+      }
 
       const { error } = await this.supabase
         .from('invitation_comments')
