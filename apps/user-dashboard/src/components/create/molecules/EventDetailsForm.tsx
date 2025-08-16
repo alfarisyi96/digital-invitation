@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { UseFormReturn } from 'react-hook-form'
+import { debounce } from 'lodash'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -138,17 +139,25 @@ export function EventDetailsForm({ form, category, onLocationSelect }: EventDeta
     form.setValue('events', updatedEvents)
   }
 
+  // Debounced auto-fill detection
+  const debouncedUpdateEvents = useCallback(
+    debounce((formData: any) => {
+      if (formData.events && Array.isArray(formData.events) && formData.events.length > 0) {
+        console.log('EventDetailsForm: Auto-fill detected (debounced), updating events:', formData.events)
+        setEvents(formData.events)
+      }
+    }, 300),
+    []
+  )
+
   // Sync with form data when auto-fill is triggered
   useEffect(() => {
     const subscription = form.watch(() => {
       const formData = form.getValues()
-      if (formData.events && Array.isArray(formData.events) && formData.events.length > 0) {
-        console.log('EventDetailsForm: Auto-fill detected, updating events:', formData.events)
-        setEvents(formData.events)
-      }
+      debouncedUpdateEvents(formData)
     })
     return () => subscription.unsubscribe()
-  }, [form])
+  }, [form, debouncedUpdateEvents])
 
   // Additional effect to sync with form values (especially for edit mode)
   useEffect(() => {
@@ -249,7 +258,7 @@ export function EventDetailsForm({ form, category, onLocationSelect }: EventDeta
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+                <label className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                   <Clock className="w-4 h-4 mr-1" />
                   Time *
                 </label>
@@ -278,7 +287,7 @@ export function EventDetailsForm({ form, category, onLocationSelect }: EventDeta
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+              <label className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                 <MapPin className="w-4 h-4 mr-1" />
                 Venue Address
               </label>

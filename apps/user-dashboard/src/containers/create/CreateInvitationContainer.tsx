@@ -46,6 +46,7 @@ export function CreateInvitationContainer() {
     
     // Modal state
     showUpgradeModal,
+    upgradeErrorType,
     showShareModal,
     createdInvitation,
     
@@ -120,6 +121,7 @@ export function CreateInvitationContainer() {
         onClose={hideUpgradeDialog}
         onPaymentSubmit={handlePaymentSubmission}
         isLoading={isSubmitting}
+        errorType={upgradeErrorType}
       />
 
       <ShareModal

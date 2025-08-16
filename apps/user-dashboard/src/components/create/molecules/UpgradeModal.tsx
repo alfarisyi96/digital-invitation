@@ -11,10 +11,38 @@ interface UpgradeModalProps {
   onClose: () => void
   onPaymentSubmit: (paymentData: PaymentConfirmation) => Promise<{ success: boolean; error?: string }>
   isLoading?: boolean
+  errorType?: 'PACKAGE_LIMIT_EXCEEDED' | 'TEMPLATE_ACCESS_DENIED' | 'PREMIUM_TEMPLATE_REQUIRED'
 }
 
-export function UpgradeModal({ isOpen, onClose, onPaymentSubmit, isLoading = false }: UpgradeModalProps) {
+export function UpgradeModal({ isOpen, onClose, onPaymentSubmit, isLoading = false, errorType }: UpgradeModalProps) {
   const [showPaymentModal, setShowPaymentModal] = useState(false)
+
+  // Get messaging based on error type
+  const getModalContent = () => {
+    switch (errorType) {
+      case 'PACKAGE_LIMIT_EXCEEDED':
+        return {
+          title: 'Package Limit Reached',
+          description: 'You have reached your invitation limit for the Basic package. Upgrade to Gold for unlimited invitations.',
+          icon: '📊'
+        }
+      case 'TEMPLATE_ACCESS_DENIED':
+      case 'PREMIUM_TEMPLATE_REQUIRED':
+        return {
+          title: 'Premium Template Access',
+          description: 'This beautiful template is only available with the Gold package. Upgrade to access premium templates.',
+          icon: '👑'
+        }
+      default:
+        return {
+          title: 'Upgrade to Gold Package',
+          description: 'Unlock premium features and templates with the Gold package.',
+          icon: '✨'
+        }
+    }
+  }
+
+  const content = getModalContent()
 
   const handleUpgradeClick = () => {
     setShowPaymentModal(true)
@@ -35,11 +63,11 @@ export function UpgradeModal({ isOpen, onClose, onPaymentSubmit, isLoading = fal
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center">
-              <Crown className="w-5 h-5 mr-2 text-yellow-600" />
-              Upgrade to Gold Package
+              <span className="mr-2">{content.icon}</span>
+              {content.title}
             </DialogTitle>
             <DialogDescription>
-              This template is only available with the Gold package. Would you like to upgrade?
+              {content.description}
             </DialogDescription>
           </DialogHeader>
           

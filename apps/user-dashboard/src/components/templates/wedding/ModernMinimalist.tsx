@@ -1,6 +1,7 @@
 import React from 'react'
 import { EditableText } from '@/components/create/atoms/EditableText'
 import { EditableImage } from '@/components/create/atoms/EditableImage'
+import { EditableGallery } from '@/components/create/atoms/EditableGallery'
 import { RSVPForm } from '@/components/create/molecules/RSVPForm'
 import { CommentsForm } from '@/components/create/molecules/CommentsForm'
 import { WeddingFormData } from '@/services/supabaseService'
@@ -8,6 +9,12 @@ import { WeddingFormData } from '@/services/supabaseService'
 interface ModernMinimalistProps {
   formData: WeddingFormData
   customization?: any
+  images?: {
+    hero_image?: string
+    bride_image?: string
+    groom_image?: string
+    gallery_photos?: string[]
+  }
   invitationId?: string // Add for RSVP and Comments
   showInteractiveFeatures?: boolean // Toggle for preview vs public view
 }
@@ -21,7 +28,7 @@ interface ModernMinimalistProps {
  * - Modern typography
  * - Subtle colors and gradients
  */
-export function ModernMinimalist({ formData, customization, invitationId, showInteractiveFeatures = false }: ModernMinimalistProps) {
+export function ModernMinimalist({ formData, customization, images, invitationId, showInteractiveFeatures = false }: ModernMinimalistProps) {
   
   // RSVP and Comments handlers
   const handleRSVPSubmit = async (data: any) => {
@@ -75,6 +82,7 @@ export function ModernMinimalist({ formData, customization, invitationId, showIn
           <div className="mb-16">
             <EditableImage
               imageKey="hero"
+              src={images?.hero_image}
               className="w-full max-w-2xl h-96 mx-auto rounded-2xl object-cover shadow-2xl"
               placeholder="Upload Hero Image"
             />
@@ -149,6 +157,7 @@ export function ModernMinimalist({ formData, customization, invitationId, showIn
             <div className="text-center">
               <EditableImage
                 imageKey="bride"
+                src={images?.bride_image}
                 className="w-48 h-48 rounded-full mx-auto mb-8 object-cover shadow-xl"
                 placeholder="Bride Photo"
               />
@@ -172,6 +181,7 @@ export function ModernMinimalist({ formData, customization, invitationId, showIn
             <div className="text-center">
               <EditableImage
                 imageKey="groom"
+                src={images?.groom_image}
                 className="w-48 h-48 rounded-full mx-auto mb-8 object-cover shadow-xl"
                 placeholder="Groom Photo"
               />
@@ -342,6 +352,34 @@ export function ModernMinimalist({ formData, customization, invitationId, showIn
           </div>
         </div>
       )}
+
+      {/* Gallery Section */}
+      <div className="py-20 px-6 bg-gray-50">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <EditableText
+              textKey="gallery_title"
+              defaultValue="Our Memories"
+              className="text-4xl font-light text-[var(--primary-color)] mb-4"
+              style={{ fontFamily: 'var(--heading-font)' }}
+              tag="h2"
+            />
+            <EditableText
+              textKey="gallery_subtitle"
+              defaultValue="Moments that made us who we are"
+              className="text-gray-600 text-lg"
+              style={{ fontFamily: 'var(--body-font)' }}
+              tag="p"
+            />
+          </div>
+          <EditableGallery
+            maxImages={6}
+            className="grid grid-cols-2 md:grid-cols-3 gap-6"
+            placeholder="Add Gallery Images"
+            images={images?.gallery_photos}
+          />
+        </div>
+      </div>
 
       {/* RSVP Section - Premium Feature */}
       {showInteractiveFeatures && invitationId && (

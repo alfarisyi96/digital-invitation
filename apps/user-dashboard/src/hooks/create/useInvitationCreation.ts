@@ -3,6 +3,29 @@ import { useUserInvitations } from '@/hooks/useSupabaseData'
 import { InvitationType, PackageType, WeddingFormData, supabaseService } from '@/services/supabaseService'
 import { edgeFunctionsService } from '@/services/edgeFunctionsService'
 
+// Helper function to get images from localStorage
+const getImagesFromLocalStorage = () => {
+  try {
+    const existingCustomizations = JSON.parse(localStorage.getItem('templateCustomization') || '{}')
+    const customImages = existingCustomizations.customImages || {}
+    
+    return {
+      hero_image: customImages.hero || '',
+      bride_image: customImages.bride || '',
+      groom_image: customImages.groom || '',
+      gallery_photos: customImages.gallery || []
+    }
+  } catch (error) {
+    console.error('Failed to get images from localStorage:', error)
+    return {
+      hero_image: '',
+      bride_image: '',
+      groom_image: '',
+      gallery_photos: []
+    }
+  }
+}
+
 export function useInvitationCreation() {
   const { createInvitation, updateInvitation } = useUserInvitations()
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -17,15 +40,27 @@ export function useInvitationCreation() {
   ) => {
     setIsSubmitting(true)
     try {
+      // Get uploaded images from localStorage
+      const imageData = getImagesFromLocalStorage()
+      console.log('🖼️ Including image data in invitation creation:', imageData)
+
+      // Combine form data with image data
+      const enhancedFormData = {
+        ...formData,
+        ...imageData
+      }
+
       // Use secure invitation creation through Edge Function
       // The edge function handles both package validation and template access validation
       const result = await supabaseService.createInvitationSecure({
-        title: formData.bride_full_name && formData.groom_full_name 
-          ? `${formData.bride_full_name} & ${formData.groom_full_name} Wedding`
-          : 'Wedding Invitation',
+        title: formData.title && formData.title.trim().length > 0
+          ? formData.title.trim()
+          : (formData.bride_full_name && formData.groom_full_name 
+              ? `${formData.bride_full_name} & ${formData.groom_full_name} Wedding`
+              : 'Wedding Invitation'),
         type: category,
         template_id: templateId,
-        form_data: formData
+        form_data: enhancedFormData
       })
 
       if (!result.success) {
@@ -62,9 +97,11 @@ export function useInvitationCreation() {
       // Get the created invitation details
       const invitation = {
         id: result.invitationId,
-        title: formData.bride_full_name && formData.groom_full_name 
-          ? `${formData.bride_full_name} & ${formData.groom_full_name} Wedding`
-          : 'Wedding Invitation',
+        title: formData.title && formData.title.trim().length > 0
+          ? formData.title.trim()
+          : (formData.bride_full_name && formData.groom_full_name 
+              ? `${formData.bride_full_name} & ${formData.groom_full_name} Wedding`
+              : 'Wedding Invitation'),
         // Add other necessary fields
       }
 
@@ -86,14 +123,26 @@ export function useInvitationCreation() {
   ) => {
     setIsSaving(true)
     try {
+      // Get uploaded images from localStorage
+      const imageData = getImagesFromLocalStorage()
+      console.log('🖼️ Including image data in invitation update:', imageData)
+
+      // Combine form data with image data
+      const enhancedFormData = {
+        ...formData,
+        ...imageData
+      }
+
       const updateData = {
-        title: formData.bride_full_name && formData.groom_full_name 
-          ? `${formData.bride_full_name} & ${formData.groom_full_name} Wedding`
-          : existingInvitation?.title || 'Wedding Invitation',
+        title: formData.title && formData.title.trim().length > 0
+          ? formData.title.trim()
+          : (formData.bride_full_name && formData.groom_full_name 
+              ? `${formData.bride_full_name} & ${formData.groom_full_name} Wedding`
+              : existingInvitation?.title || 'Wedding Invitation'),
         event_date: formData.wedding_date ? new Date(formData.wedding_date).toISOString() : existingInvitation?.event_date,
         location: formData.venue_address || formData.venue_name || existingInvitation?.location,
         description: formData.invitation_message || existingInvitation?.description,
-        custom_data: formData,
+        custom_data: enhancedFormData,
         template_id: templateId || existingInvitation?.template_id
       }
 

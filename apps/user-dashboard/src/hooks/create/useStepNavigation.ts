@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { InvitationType } from '@/services/supabaseService'
 
@@ -19,7 +19,7 @@ export function useStepNavigation(isEditMode = false) {
   }))
 
   // Update URL with current state
-  const updateURL = (updates: Partial<StepNavigationState>) => {
+  const updateURL = useCallback((updates: Partial<StepNavigationState>) => {
     const params = new URLSearchParams(window.location.search)
     
     // Only update parameters that are explicitly provided
@@ -46,42 +46,50 @@ export function useStepNavigation(isEditMode = false) {
     const url = `/create?${params.toString()}`
     
     // Debug logging
-    console.log('🔄 URL Update:', {
-      updates,
-      url,
-      currentParams: Object.fromEntries(params.entries())
-    })
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔄 URL Update:', {
+        updates,
+        url,
+        currentParams: Object.fromEntries(params.entries())
+      })
+    }
     
     window.history.pushState(null, '', url)
-  }
+  }, [])
 
   // Setters that also update URL
-  const setCurrentStep = (step: number) => {
+  const setCurrentStep = useCallback((step: number) => {
     setState(prevState => {
       const newState = { ...prevState, currentStep: step }
-      console.log('📍 Step changed to:', step, 'State:', newState)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('📍 Step changed to:', step, 'State:', newState)
+      }
       return newState
     })
     updateURL({ currentStep: step }) // Only update the step, preserve other params
-  }
+  }, [])
 
-  const setSelectedCategory = (category: InvitationType | null) => {
+  const setSelectedCategory = useCallback((category: InvitationType | null) => {
     setState(prevState => {
       const newState = { ...prevState, selectedCategory: category }
-      console.log('📂 Category changed to:', category, 'State:', newState)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('📂 Category changed to:', category, 'State:', newState)
+      }
       return newState
     })
     updateURL({ selectedCategory: category }) // Only update the category, preserve other params
-  }
+  }, [])
 
-  const setSelectedTemplate = (template: string | null) => {
+  const setSelectedTemplate = useCallback((template: string | null) => {
     setState(prevState => {
       const newState = { ...prevState, selectedTemplate: template }
-      console.log('🎨 Template changed to:', template, 'State:', newState)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🎨 Template changed to:', template, 'State:', newState)
+      }
       return newState
     })
     updateURL({ selectedTemplate: template }) // Only update the template, preserve other params
-  }
+  }, [])
 
   // Navigate to next step
   const goToNextStep = () => {

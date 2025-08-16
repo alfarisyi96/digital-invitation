@@ -5,6 +5,7 @@ import { edgeFunctionsService, PackageStatus, PaymentConfirmation } from '@/serv
 export function usePackageManagement() {
   const [selectedPackage, setSelectedPackage] = useState<PackageType>('basic')
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [upgradeErrorType, setUpgradeErrorType] = useState<'PACKAGE_LIMIT_EXCEEDED' | 'TEMPLATE_ACCESS_DENIED' | 'PREMIUM_TEMPLATE_REQUIRED' | undefined>()
   const [packageStatus, setPackageStatus] = useState<PackageStatus | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -94,12 +95,14 @@ export function usePackageManagement() {
     setShowUpgradeModal(false)
   }
 
-  const showUpgradeDialog = () => {
+  const showUpgradeDialog = (errorType?: 'PACKAGE_LIMIT_EXCEEDED' | 'TEMPLATE_ACCESS_DENIED' | 'PREMIUM_TEMPLATE_REQUIRED') => {
+    setUpgradeErrorType(errorType)
     setShowUpgradeModal(true)
   }
 
   const hideUpgradeDialog = () => {
     setShowUpgradeModal(false)
+    setUpgradeErrorType(undefined)
   }
 
   // Check if user can access a specific template
@@ -128,6 +131,7 @@ export function usePackageManagement() {
     selectedPackage,
     setSelectedPackage,
     showUpgradeModal,
+    upgradeErrorType,
     packageStatus,
     isLoading,
     error,

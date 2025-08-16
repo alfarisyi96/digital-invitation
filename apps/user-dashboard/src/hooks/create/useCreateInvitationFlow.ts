@@ -54,7 +54,14 @@ export function useCreateInvitationFlow() {
   
   // Form and data management
   const form = useWeddingForm()
-  const editModeState = useEditMode(form, editId, invitations)
+  const editModeState = useEditMode(
+    form, 
+    editId, 
+    invitations, 
+    navigationState.setSelectedTemplate,
+    navigationState.setSelectedCategory,
+    navigationState.setCurrentStep
+  )
   const { templates, loading: templatesLoading } = usePublicTemplates(navigationState.selectedCategory || undefined)
   
   // Derived state
@@ -376,10 +383,10 @@ export function useCreateInvitationFlow() {
       // Handle specific error types that should trigger upgrade flow
       if (error.type === 'PACKAGE_LIMIT_EXCEEDED' || error.message?.includes('Package limit exceeded')) {
         console.log('📦 Package limit exceeded - showing upgrade modal')
-        packageState.showUpgradeDialog()
+        packageState.showUpgradeDialog('PACKAGE_LIMIT_EXCEEDED')
       } else if (error.type === 'TEMPLATE_ACCESS_DENIED' || error.message?.includes('Template not accessible with current package')) {
         console.log('🔒 Template access denied - showing upgrade modal')
-        packageState.showUpgradeDialog()
+        packageState.showUpgradeDialog('TEMPLATE_ACCESS_DENIED')
       } else {
         // Handle other errors (could show a generic error modal here)
         console.error('❌ Unexpected error:', error.message)
@@ -488,6 +495,7 @@ export function useCreateInvitationFlow() {
     
     // Modal state
     showUpgradeModal: packageState.showUpgradeModal,
+    upgradeErrorType: packageState.upgradeErrorType,
     showShareModal: modalState.showShareModal,
     createdInvitation: invitationOperations.createdInvitation,
     

@@ -40,9 +40,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
     try {
       console.log('Ensuring user profile for:', supabaseUser.id)
       
-      // Add timeout to prevent hanging
+      // Add timeout to prevent hanging - increased from 10s to 30s for better reliability
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Profile check timeout')), 10000)
+        setTimeout(() => reject(new Error('Profile check timeout')), 30000)
       )
       
       const profilePromise = supabase.rpc('ensure_user_profile', {

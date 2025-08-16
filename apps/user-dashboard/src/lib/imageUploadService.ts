@@ -3,109 +3,6 @@ import { createClient } from '@/lib/supabase/client'
 export class ImageUploadService {
   private supabase = createClient()
 
-  async uploadToCloudflare(file: File): Promise<{
-    success: boolean
-    data?: {
-      id: string
-      url: string
-      variants: {
-        thumbnail: string
-        medium: string
-        large: string
-      }
-      filename: string
-      uploaded: string
-    }
-    error?: string
-  }> {
-    try {
-      // Create form data for upload
-      const formData = new FormData()
-      formData.append('file', file)
-
-      // Call the Supabase edge function
-      const { data, error } = await this.supabase.functions.invoke('cloudflare-image-upload', {
-        body: formData
-      })
-
-      if (error) {
-        console.error('Supabase function error:', error)
-        return {
-          success: false,
-          error: error.message || 'Failed to upload image'
-        }
-      }
-
-      if (!data?.success) {
-        return {
-          success: false,
-          error: data?.error || 'Upload failed'
-        }
-      }
-
-      return {
-        success: true,
-        data: data.data
-      }
-
-    } catch (error) {
-      console.error('Image upload error:', error)
-      return {
-        success: false,
-        error: 'Failed to upload image'
-      }
-    }
-  }
-
-  // Fallback method using the Next.js API route
-  async uploadViaAPI(file: File): Promise<{
-    success: boolean
-    data?: {
-      id: string
-      url: string
-      variants: {
-        thumbnail: string
-        medium: string
-        large: string
-      }
-      filename: string
-      uploaded: string
-    }
-    error?: string
-  }> {
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-      
-      const response = await fetch('/api/upload-image', {
-        method: 'POST',
-        body: formData
-      })
-      
-      const result = await response.json()
-      
-      if (!result.success) {
-        return {
-          success: false,
-          error: result.error || 'Upload failed'
-        }
-      }
-      
-      return {
-        success: true,
-        data: result.data
-      }
-
-    } catch (error) {
-      console.error('API upload error:', error)
-      return {
-        success: false,
-        error: 'Failed to upload image'
-      }
-    }
-  }
-
-  // Main upload method with fallback
   async upload(file: File): Promise<{
     success: boolean
     data?: {
@@ -121,26 +18,110 @@ export class ImageUploadService {
     }
     error?: string
   }> {
-    // Try Supabase edge function first
-    const edgeResult = await this.uploadToCloudflare(file)
-    
-    if (edgeResult.success) {
-      console.log('✅ Image uploaded via Supabase edge function')
-      return edgeResult
-    }
+    try {
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+      if (!allowedTypes.includes(file.type)) {
+        return {
+          success: false,
+          error: 'Invalid file type. Only JPEG, PNG, WebP, and GIF are allowed.'
+        }
+      }
 
-    console.log('⚠️ Edge function failed, trying API fallback...')
-    
-    // Fallback to Next.js API route
-    const apiResult = await this.uploadViaAPI(file)
-    
-    if (apiResult.success) {
-      console.log('✅ Image uploaded via API fallback')
-      return apiResult
-    }
+      // Validate file size (max 10MB)
+      const maxSize = 10 * 1024 * 1024 // 10MB
+      if (file.size > maxSize) {
+        return {
+          success: false,
+          error: 'File too large. Maximum size is 10MB.'
+        }
+      }
 
-    console.error('❌ Both upload methods failed')
-    return apiResult
+      // Generate unique filename
+      const timestamp = Date.now()
+      const randomString = Math.random().toString(36).substring(2, 15)
+      const fileExtension = file.name.split('.').pop() || 'jpg'
+      const fileName = `invitation-images/${timestamp}-${randomString}.${fileExtension}`
+
+      // Upload to Supabase Storage
+      const { data, error } = await this.supabase.storage
+        .from('invitation-images')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        })
+
+      if (error) {
+        console.error('Supabase storage error:', error)
+        return {
+          success: false,
+          error: error.message || 'Failed to upload image'
+        }
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = this.supabase.storage
+        .from('invitation-images')
+        .getPublicUrl(data.path)
+
+      // Create variants using Supabase's built-in transformations
+      const baseUrl = publicUrl
+      const variants = {
+        thumbnail: `${baseUrl}?width=150&height=150&resize=cover&quality=80`,
+        medium: `${baseUrl}?width=400&height=400&resize=cover&quality=85`,
+        large: `${baseUrl}?width=800&height=800&resize=cover&quality=90`
+      }
+
+      console.log('✅ Image uploaded to Supabase Storage:', baseUrl)
+
+      return {
+        success: true,
+        data: {
+          id: data.path,
+          url: publicUrl,
+          variants,
+          filename: file.name,
+          uploaded: new Date().toISOString()
+        }
+      }
+
+    } catch (error) {
+      console.error('Image upload error:', error)
+      return {
+        success: false,
+        error: 'Failed to upload image'
+      }
+    }
+  }
+
+  // Method to delete an image from storage
+  async deleteImage(imagePath: string): Promise<{
+    success: boolean
+    error?: string
+  }> {
+    try {
+      const { error } = await this.supabase.storage
+        .from('invitation-images')
+        .remove([imagePath])
+
+      if (error) {
+        console.error('Failed to delete image:', error)
+        return {
+          success: false,
+          error: error.message || 'Failed to delete image'
+        }
+      }
+
+      console.log('✅ Image deleted from Supabase Storage:', imagePath)
+      return { success: true }
+
+    } catch (error) {
+      console.error('Delete image error:', error)
+      return {
+        success: false,
+        error: 'Failed to delete image'
+      }
+    }
   }
 }
 

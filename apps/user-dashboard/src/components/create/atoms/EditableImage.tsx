@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { Upload, Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { imageUploadService } from '@/lib/imageUploadService'
@@ -8,6 +8,7 @@ interface EditableImageProps {
   className?: string
   placeholder?: string
   templateId?: string
+  src?: string // Allow passing initial image URL
 }
 
 /**
@@ -16,19 +17,48 @@ interface EditableImageProps {
  * Features:
  * - Click to upload image
  * - Crop/resize before upload (future enhancement)
- * - Upload to Cloudflare after user edits
+ * - Upload to Supabase Storage after user edits
  * - Auto-save to localStorage
  */
 export function EditableImage({ 
   imageKey, 
   className = '', 
   placeholder = 'Upload Image',
-  templateId
+  templateId,
+  src
 }: EditableImageProps) {
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [showUploadArea, setShowUploadArea] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Load image from localStorage on mount or use provided src
+  useEffect(() => {
+    const loadImageFromStorage = () => {
+      try {
+        // First check if src prop is provided
+        if (src) {
+          setImageUrl(src)
+          console.log('🖼️ Image loaded from src prop:', { imageKey, url: src })
+          return
+        }
+
+        // Otherwise load from localStorage
+        const existingCustomizations = JSON.parse(localStorage.getItem('templateCustomization') || '{}')
+        const customImages = existingCustomizations.customImages || {}
+        const storedImageUrl = customImages[imageKey]
+        
+        if (storedImageUrl) {
+          setImageUrl(storedImageUrl)
+          console.log('🖼️ Image loaded from localStorage:', { imageKey, url: storedImageUrl })
+        }
+      } catch (error) {
+        console.error('Failed to load image from localStorage:', error)
+      }
+    }
+
+    loadImageFromStorage()
+  }, [imageKey, src])
 
   const saveToLocalStorage = (key: string, url: string) => {
     try {
@@ -64,21 +94,21 @@ export function EditableImage({
     setIsUploading(true)
     
     try {
-      // Upload using the new service (Supabase edge function with API fallback)
+      // Upload using Supabase Storage
       const result = await imageUploadService.upload(file)
       
       if (!result.success) {
         throw new Error(result.error || 'Upload failed')
       }
       
-      // Use the Cloudflare URL
-      const cloudflareUrl = result.data!.url
+      // Use the Supabase Storage URL
+      const supabaseUrl = result.data!.url
       
-      setImageUrl(cloudflareUrl)
-      saveToLocalStorage(imageKey, cloudflareUrl)
+      setImageUrl(supabaseUrl)
+      saveToLocalStorage(imageKey, supabaseUrl)
       setShowUploadArea(false)
       
-      console.log('�️ Image uploaded to Cloudflare:', { imageKey, url: cloudflareUrl })
+      console.log('🖼️ Image uploaded to Supabase Storage:', { imageKey, url: supabaseUrl })
       
     } catch (error) {
       console.error('Failed to upload image:', error)

@@ -4,6 +4,7 @@ import { EditableText } from '@/components/create/atoms/EditableText'
 import { EditableImage } from '@/components/create/atoms/EditableImage'
 import { Template, WeddingFormData } from '@/services/supabaseService'
 import { loadTemplate } from '@/lib/templateConfig'
+import { useImageManagement } from '@/hooks/useImageManagement'
 import { FileText } from 'lucide-react'
 
 interface TemplatePreviewProps {
@@ -25,6 +26,14 @@ export function TemplatePreview({ template, formData, category }: TemplatePrevie
   const [TemplateComponent, setTemplateComponent] = useState<React.ComponentType<any> | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  
+  // Image management integration
+  const { images, loadFromLocalStorage } = useImageManagement()
+
+  // Load images from localStorage on mount
+  useEffect(() => {
+    loadFromLocalStorage()
+  }, [loadFromLocalStorage])
 
   // Get customization from localStorage directly
   const getCustomization = () => {
@@ -105,12 +114,14 @@ export function TemplatePreview({ template, formData, category }: TemplatePrevie
             <PlaceholderTemplate 
               template={template}
               formData={formData}
+              images={images}
               error={error}
             />
           ) : (
             <TemplateComponent 
               formData={formData}
               customization={customization}
+              images={images}
             />
           )}
         </div>
@@ -126,10 +137,12 @@ export function TemplatePreview({ template, formData, category }: TemplatePrevie
 function PlaceholderTemplate({ 
   template, 
   formData,
+  images,
   error 
 }: { 
   template: Template
   formData: WeddingFormData
+  images: any
   error?: string | null 
 }) {
   return (

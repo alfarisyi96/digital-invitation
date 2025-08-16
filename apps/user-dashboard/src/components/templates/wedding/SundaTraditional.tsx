@@ -1,11 +1,18 @@
 import React from 'react'
 import { EditableText } from '@/components/create/atoms/EditableText'
 import { EditableImage } from '@/components/create/atoms/EditableImage'
+import { EditableGallery } from '@/components/create/atoms/EditableGallery'
 import { WeddingFormData } from '@/services/supabaseService'
 
 interface SundaTraditionalProps {
   formData: WeddingFormData
   customization?: any
+  images?: {
+    hero_image?: string
+    bride_image?: string
+    groom_image?: string
+    gallery_photos?: string[]
+  }
 }
 
 /**
@@ -17,7 +24,7 @@ interface SundaTraditionalProps {
  * - Gold and earth tone color scheme
  * - Batik-inspired patterns
  */
-export function SundaTraditional({ formData, customization }: SundaTraditionalProps) {
+export function SundaTraditional({ formData, customization, images }: SundaTraditionalProps) {
   return (
     <div className="sunda-template bg-gradient-to-b from-amber-50 to-yellow-50 min-h-screen">
       {/* Traditional Border Pattern */}
@@ -57,6 +64,7 @@ export function SundaTraditional({ formData, customization }: SundaTraditionalPr
             <div className="relative bg-white p-6 rounded-lg shadow-lg">
               <EditableImage
                 imageKey="hero"
+                src={images?.hero_image}
                 className="w-full h-64 rounded-lg object-cover"
                 placeholder="Upload Hero Image"
               />
@@ -90,6 +98,7 @@ export function SundaTraditional({ formData, customization }: SundaTraditionalPr
               <div className="text-center">
                 <EditableImage
                   imageKey="bride"
+                  src={images?.bride_image}
                   className="w-32 h-32 rounded-full mx-auto mb-4 object-cover border-4 border-amber-300 shadow-lg"
                   placeholder="Bride Photo"
                 />
@@ -120,6 +129,7 @@ export function SundaTraditional({ formData, customization }: SundaTraditionalPr
               <div className="text-center">
                 <EditableImage
                   imageKey="groom"
+                  src={images?.groom_image}
                   className="w-32 h-32 rounded-full mx-auto mb-4 object-cover border-4 border-amber-300 shadow-lg"
                   placeholder="Groom Photo"
                 />
@@ -223,6 +233,40 @@ export function SundaTraditional({ formData, customization }: SundaTraditionalPr
               <p className="text-amber-600">Detail acara akan ditampilkan di sini</p>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Gallery Section with Traditional Touch */}
+      <div className="py-16 px-6 bg-gradient-to-b from-amber-50 to-yellow-50">
+        <div className="max-w-4xl mx-auto">
+          {/* Traditional Ornament */}
+          <div className="text-center mb-12">
+            <div className="inline-block">
+              <div className="w-16 h-1 bg-gradient-to-r from-amber-600 to-yellow-600 mx-auto mb-4"></div>
+              <EditableText
+                textKey="gallery_title"
+                defaultValue="Galeri Kenangan"
+                className="text-3xl font-bold text-amber-800 mb-2"
+                style={{ fontFamily: 'var(--heading-font)' }}
+                tag="h2"
+              />
+              <EditableText
+                textKey="gallery_subtitle"
+                defaultValue="Momen-momen berharga dalam perjalanan cinta kami"
+                className="text-amber-700"
+                style={{ fontFamily: 'var(--body-font)' }}
+                tag="p"
+              />
+              <div className="w-16 h-1 bg-gradient-to-r from-amber-600 to-yellow-600 mx-auto mt-4"></div>
+            </div>
+          </div>
+          
+          <EditableGallery
+            maxImages={6}
+            className="grid grid-cols-2 md:grid-cols-3 gap-4"
+            placeholder="Tambahkan Foto Galeri"
+            images={images?.gallery_photos}
+          />
         </div>
       </div>
 

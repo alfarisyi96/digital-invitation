@@ -12,7 +12,7 @@ interface StepHandlersProps {
   setCurrentStep: (step: number) => void
   setSelectedTemplate: (template: string | null) => void
   updateFormData: (data: WeddingFormData) => void
-  showUpgradeDialog: () => void
+  showUpgradeDialog: (errorType?: 'PACKAGE_LIMIT_EXCEEDED' | 'TEMPLATE_ACCESS_DENIED' | 'PREMIUM_TEMPLATE_REQUIRED') => void
   onCreateInvitation: () => Promise<void>
   updateState?: (updates: { currentStep?: number; selectedCategory?: InvitationType | null; selectedTemplate?: string | null }) => void
   form?: any // Add form reference to populate it
@@ -121,6 +121,7 @@ export function useStepHandlers({
     }
 
     const localFormData: WeddingFormData = {
+      title: data.title,
       bride_full_name: data.bride_full_name,
       bride_nickname: data.bride_nickname,
       groom_full_name: data.groom_full_name,
@@ -179,7 +180,7 @@ export function useStepHandlers({
       })
       
       // Show upgrade modal instead of saving
-      showUpgradeDialog()
+      showUpgradeDialog('PREMIUM_TEMPLATE_REQUIRED')
       return
     }
 

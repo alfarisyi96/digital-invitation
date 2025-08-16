@@ -166,6 +166,8 @@ export interface FormGiftAccount {
 
 // Wedding-specific form data structure
 export interface WeddingFormData {
+  // Optional custom invitation title
+  title?: string
   // Essential couple info
   bride_full_name: string
   bride_nickname?: string
