@@ -2,6 +2,17 @@
   "version": 2,
   "projects": [
     {
+      "name": "invitation-marketing-site",
+      "source": "apps/marketing-site",
+      "framework": "nextjs",
+      "buildCommand": "cd ../.. && npm run build:marketing",
+      "installCommand": "cd ../.. && npm install",
+      "outputDirectory": "apps/marketing-site/.next",
+      "env": {
+        "NEXT_PUBLIC_ENVIRONMENT": "production"
+      }
+    },
+    {
       "name": "invitation-landing-page",
       "source": "apps/landing-page",
       "framework": "nextjs",

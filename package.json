@@ -17,9 +17,12 @@
     "dev:landing": "turbo run dev --filter=landing-page",
     "dev:user": "turbo run dev --filter=user-dashboard",
     "dev:admin": "turbo run dev --filter=admin-dashboard",
+  "dev:marketing": "turbo run dev --filter=marketing-site",
     "build:landing": "turbo run build --filter=landing-page",
     "build:user": "turbo run build --filter=user-dashboard",
     "build:admin": "turbo run build --filter=admin-dashboard"
+  ,
+  "build:marketing": "turbo run build --filter=marketing-site"
   },
   "devDependencies": {
     "turbo": "^1.10.7",
